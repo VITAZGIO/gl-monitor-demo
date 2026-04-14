@@ -1,0 +1,7 @@
+services:
+  gl-monitor-demo:
+    build: .
+    container_name: gl-monitor-demo
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
