@@ -14,7 +14,7 @@ DEVICES = {
         "connected": True,
         "errors": "Нет",
         "input_pressure": "4.2 бар",
-        "system_pressure": "3.9 бар"
+        "system_pressure": "3.2 бар"
     },
     "GL-002": {
         "connected": False,
