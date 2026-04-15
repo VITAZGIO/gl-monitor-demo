@@ -69,6 +69,13 @@
             color: #aaaaaa;
         }
 
+        .debug {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #8fd3ff;
+        }
+
+        /* СЕКРЕТНАЯ КНОПКА */
         #secret-btn {
             position: fixed;
             bottom: 5px;
@@ -93,18 +100,17 @@
         <div class="card" id="deviceData">
             <div class="empty">Выберите устройство</div>
         </div>
+
+        <!-- DEBUG (можно потом убрать) -->
+        <div class="debug" id="debugInfo">
+            JS загружается...
+        </div>
     </div>
 
+    <!-- контейнер для змейки -->
     <div id="snake-container"></div>
 
-    <div id="secret-btn" onclick="toggleSnake()"></div>
-
-    <script src="/static/app.js"></script>
-
-    <!--  контейнер для змейки -->
-    <div id="snake-container"></div>
-
-    <!--  невидимая кнопка -->
+    <!-- невидимая кнопка -->
     <div id="secret-btn" onclick="toggleSnake()"></div>
 
     <!-- основной скрипт -->
@@ -112,5 +118,6 @@
 
     <!-- змейка -->
     <script src="/static/snake.js"></script>
+
 </body>
 </html>
