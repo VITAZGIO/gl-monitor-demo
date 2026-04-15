@@ -1,12 +1,22 @@
 const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
+const debugInfo = document.getElementById("debugInfo");
 
 let selectedDeviceId = "";
 let autoRefreshInterval = null;
+let tick = 0;
+
+function setDebug(text) {
+    if (debugInfo) {
+        debugInfo.textContent = text;
+    }
+}
 
 async function loadDevices() {
+    setDebug("loadDevices() запущен");
+
     try {
-        const response = await fetch("/api/devices", {
+        const response = await fetch("/api/devices?t=" + Date.now(), {
             cache: "no-store"
         });
         const data = await response.json();
@@ -19,15 +29,18 @@ async function loadDevices() {
             option.textContent = device;
             deviceSelect.appendChild(option);
         });
+
+        setDebug("Список устройств загружен");
     } catch (error) {
-        console.error("Ошибка загрузки списка устройств:", error);
-        deviceSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
+        console.error(error);
+        setDebug("Ошибка загрузки списка устройств");
     }
 }
 
 async function loadDeviceData(deviceId) {
     if (!deviceId) {
         deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        setDebug("Устройство не выбрано");
         return;
     }
 
@@ -35,11 +48,6 @@ async function loadDeviceData(deviceId) {
         const response = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, {
             cache: "no-store"
         });
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-
         const data = await response.json();
 
         deviceData.innerHTML = `
@@ -50,43 +58,34 @@ async function loadDeviceData(deviceId) {
             <div class="row"><span class="name">Давление системы:</span> ${data.system_pressure}</div>
             <div class="row"><span class="name">Последнее обновление:</span> ${data.last_updated}</div>
         `;
+
+        setDebug(`Тик: ${tick}, время: ${new Date().toLocaleTimeString()}`);
     } catch (error) {
-        console.error("Ошибка загрузки данных устройства:", error);
-        deviceData.innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+        console.error(error);
+        setDebug("Ошибка загрузки данных устройства");
     }
 }
 
 function startAutoRefresh() {
-    stopAutoRefresh();
-
-    autoRefreshInterval = setInterval(() => {
-        if (selectedDeviceId) {
-            loadDeviceData(selectedDeviceId);
-        }
-    }, 3000);
-
-    console.log("Автообновление запущено");
-}
-
-function stopAutoRefresh() {
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
-        autoRefreshInterval = null;
-        console.log("Автообновление остановлено");
     }
+
+    tick = 0;
+    setDebug("Автообновление стартовало");
+
+    autoRefreshInterval = setInterval(() => {
+        if (!selectedDeviceId) return;
+        tick++;
+        loadDeviceData(selectedDeviceId);
+    }, 3000);
 }
 
 deviceSelect.addEventListener("change", async (event) => {
     selectedDeviceId = event.target.value;
-
-    if (!selectedDeviceId) {
-        stopAutoRefresh();
-        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
-        return;
-    }
-
     await loadDeviceData(selectedDeviceId);
     startAutoRefresh();
 });
 
+setDebug("Новый app.js реально загрузился");
 loadDevices();
