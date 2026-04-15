@@ -6,7 +6,9 @@ let autoRefreshInterval = null;
 
 async function loadDevices() {
     try {
-        const response = await fetch("/api/devices");
+        const response = await fetch("/api/devices", {
+            cache: "no-store"
+        });
         const data = await response.json();
 
         deviceSelect.innerHTML = '<option value="">-- Выберите устройство --</option>';
@@ -18,6 +20,7 @@ async function loadDevices() {
             deviceSelect.appendChild(option);
         });
     } catch (error) {
+        console.error("Ошибка загрузки списка устройств:", error);
         deviceSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
     }
 }
@@ -29,7 +32,14 @@ async function loadDeviceData(deviceId) {
     }
 
     try {
-        const response = await fetch(`/api/devices/${deviceId}`);
+        const response = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
         const data = await response.json();
 
         deviceData.innerHTML = `
@@ -41,6 +51,7 @@ async function loadDeviceData(deviceId) {
             <div class="row"><span class="name">Последнее обновление:</span> ${data.last_updated}</div>
         `;
     } catch (error) {
+        console.error("Ошибка загрузки данных устройства:", error);
         deviceData.innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
     }
 }
@@ -53,24 +64,29 @@ function startAutoRefresh() {
             loadDeviceData(selectedDeviceId);
         }
     }, 3000);
+
+    console.log("Автообновление запущено");
 }
 
 function stopAutoRefresh() {
     if (autoRefreshInterval) {
         clearInterval(autoRefreshInterval);
         autoRefreshInterval = null;
+        console.log("Автообновление остановлено");
     }
 }
 
-deviceSelect.addEventListener("change", (event) => {
+deviceSelect.addEventListener("change", async (event) => {
     selectedDeviceId = event.target.value;
-    loadDeviceData(selectedDeviceId);
 
-    if (selectedDeviceId) {
-        startAutoRefresh();
-    } else {
+    if (!selectedDeviceId) {
         stopAutoRefresh();
+        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        return;
     }
+
+    await loadDeviceData(selectedDeviceId);
+    startAutoRefresh();
 });
 
 loadDevices();
