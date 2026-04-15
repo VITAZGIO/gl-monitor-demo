@@ -1,3 +1,4 @@
+alert("APP JS ЗАПУСТИЛСЯ");
 const debugInfo = document.getElementById("debugInfo");
 
 let tick = 0;
