@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GL Monitor Demo</title>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -67,8 +68,20 @@
         .empty {
             color: #aaaaaa;
         }
+
+        /* 👻 СЕКРЕТНАЯ КНОПКА */
+        #secret-btn {
+            position: fixed;
+            bottom: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            opacity: 0;
+            cursor: pointer;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>Панель мониторинга шкафов GL</h1>
@@ -83,6 +96,17 @@
         </div>
     </div>
 
+    <!-- 👻 контейнер для змейки -->
+    <div id="snake-container"></div>
+
+    <!-- 👻 невидимая кнопка -->
+    <div id="secret-btn" onclick="toggleSnake()"></div>
+
+    <!-- основной скрипт -->
     <script src="/static/app.js"></script>
+
+    <!-- змейка -->
+    <script src="/static/snake.js"></script>
+
 </body>
 </html>
