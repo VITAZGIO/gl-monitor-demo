@@ -3,16 +3,13 @@
 # В папке проекта
 cd gl-monitor-demo
 # Выполнить для обновления репозитория github
-git add .
-git commit -m "что изменил"
-git push
+git add .; git commit -m "test ssh"; git push
 
 #    Обновить код на компе с репозитория github
 # В папке проекта
 cd gl-monitor-demo
 # Выполнить для обновления кода на пк с репозитория github
 git pull
-
 
 
 
