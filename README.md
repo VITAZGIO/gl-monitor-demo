@@ -14,5 +14,9 @@ cd C:\Users\vitaz\programs\gl-monitor-demo   #Ноут
 git pull
 
 
+#    Ссылка на сайт докера
+http://192.168.3.77:8000      # Локалка
+http://100.104.111.39:8000    # Netbird
+
 #    Обновить контейнер после редактирования и сохранения файлов
 docker compose up -d --build
