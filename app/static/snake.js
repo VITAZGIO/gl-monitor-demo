@@ -1,58 +1,114 @@
 let snakeActive = false;
+let snakeInterval = null;
 
 function toggleSnake() {
-  const container = document.getElementById("snake-container");
+    const container = document.getElementById("snake-container");
 
-  if (snakeActive) {
-    container.innerHTML = "";
-    snakeActive = false;
-    return;
-  }
+    if (snakeActive) {
+        container.innerHTML = "";
+        snakeActive = false;
 
-  snakeActive = true;
+        if (snakeInterval) {
+            clearInterval(snakeInterval);
+            snakeInterval = null;
+        }
 
-  container.innerHTML = `<canvas id="snake" width="300" height="300"></canvas>`;
-  startSnake();
+        document.onkeydown = null;
+        return;
+    }
+
+    snakeActive = true;
+    container.innerHTML = `<canvas id="snake" width="300" height="300"></canvas>`;
+    startSnake();
 }
 
 function startSnake() {
-  const canvas = document.getElementById("snake");
-  const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById("snake");
+    const ctx = canvas.getContext("2d");
 
-  let snake = [{ x: 10, y: 10 }];
-  let dx = 1;
-  let dy = 0;
-  let food = { x: 15, y: 15 };
+    const cellSize = 10;
+    const gridSize = 30;
 
-  document.onkeydown = (e) => {
-    if (e.key === "ArrowUp") { dx = 0; dy = -1; }
-    if (e.key === "ArrowDown") { dx = 0; dy = 1; }
-    if (e.key === "ArrowLeft") { dx = -1; dy = 0; }
-    if (e.key === "ArrowRight") { dx = 1; dy = 0; }
-  };
+    let snake = [{ x: 10, y: 10 }];
+    let dx = 1;
+    let dy = 0;
+    let food = { x: 15, y: 15 };
+    let gameOver = false;
 
-  function draw() {
-    ctx.fillStyle = "#111";
-    ctx.fillRect(0, 0, 300, 300);
+    document.onkeydown = (e) => {
+        if (e.key === "ArrowUp" && dy !== 1) {
+            dx = 0;
+            dy = -1;
+        }
+        if (e.key === "ArrowDown" && dy !== -1) {
+            dx = 0;
+            dy = 1;
+        }
+        if (e.key === "ArrowLeft" && dx !== 1) {
+            dx = -1;
+            dy = 0;
+        }
+        if (e.key === "ArrowRight" && dx !== -1) {
+            dx = 1;
+            dy = 0;
+        }
+    };
 
-    ctx.fillStyle = "lime";
-    snake.forEach(s => ctx.fillRect(s.x * 10, s.y * 10, 10, 10));
+    function draw() {
+        if (gameOver) return;
 
-    ctx.fillStyle = "red";
-    ctx.fillRect(food.x * 10, food.y * 10, 10, 10);
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const head = { x: snake[0].x + dx, y: snake[0].y + dy };
-    snake.unshift(head);
+        const nextX = snake[0].x + dx;
+        const nextY = snake[0].y + dy;
 
-    if (head.x === food.x && head.y === food.y) {
-      food = {
-        x: Math.floor(Math.random() * 30),
-        y: Math.floor(Math.random() * 30)
-      };
-    } else {
-      snake.pop();
+        if (nextX < 0 || nextX >= gridSize || nextY < 0 || nextY >= gridSize) {
+            gameOver = true;
+            clearInterval(snakeInterval);
+            snakeInterval = null;
+            alert("Игра окончена");
+            return;
+        }
+
+        const head = { x: nextX, y: nextY };
+
+        if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            gameOver = true;
+            clearInterval(snakeInterval);
+            snakeInterval = null;
+            alert("Игра окончена");
+            return;
+        }
+
+        snake.unshift(head);
+
+        if (head.x === food.x && head.y === food.y) {
+            food = {
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize)
+            };
+        } else {
+            snake.pop();
+        }
+
+        ctx.fillStyle = "lime";
+        snake.forEach(segment => {
+            ctx.fillRect(
+                segment.x * cellSize,
+                segment.y * cellSize,
+                cellSize,
+                cellSize
+            );
+        });
+
+        ctx.fillStyle = "red";
+        ctx.fillRect(food.x * cellSize, food.y * cellSize, cellSize, cellSize);
     }
-  }
 
-  setInterval(draw, 100);
+    if (snakeInterval) {
+        clearInterval(snakeInterval);
+    }
+
+    snakeInterval = setInterval(draw, 100);
 }
