@@ -1,4 +1,3 @@
-from datetime import datetime
 import asyncio
 import contextlib
 import random
@@ -15,9 +14,6 @@ templates = Jinja2Templates(directory="app/templates")
 
 updater_task = None
 
-def now_str():
-    return datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
 def create_device(device_id: str):
     input_pressure = round(random.uniform(3.5, 5.5), 1)
     system_pressure = round(max(0.0, input_pressure - random.uniform(0.2, 0.8)), 1)
@@ -28,7 +24,6 @@ def create_device(device_id: str):
         "errors": "Нет",
         "input_pressure": input_pressure,
         "system_pressure": system_pressure,
-        "last_updated": now_str(),
     }
 
 DEVICES = {
@@ -45,7 +40,6 @@ def update_device(device: dict):
         device["errors"] = "Нет связи"
         device["input_pressure"] = 0.0
         device["system_pressure"] = 0.0
-        device["last_updated"] = now_str()
         return
 
     if not device["connected"] and random.random() < 0.35:
@@ -55,11 +49,9 @@ def update_device(device: dict):
             max(0.0, device["input_pressure"] - random.uniform(0.2, 0.8)), 1
         )
         device["errors"] = "Нет"
-        device["last_updated"] = now_str()
         return
 
     if not device["connected"]:
-        device["last_updated"] = now_str()
         return
 
     device["input_pressure"] = round(
@@ -82,8 +74,6 @@ def update_device(device: dict):
         device["errors"] = "Предупреждение: скачок давления"
     else:
         device["errors"] = "Нет"
-
-    device["last_updated"] = now_str()
 
 async def device_updater():
     while True:
@@ -126,5 +116,4 @@ async def get_device_data(device_id: str):
         "errors": device["errors"],
         "input_pressure": f'{device["input_pressure"]:.1f} бар',
         "system_pressure": f'{device["system_pressure"]:.1f} бар',
-        "last_updated": device["last_updated"],
     }
