@@ -12,12 +12,6 @@
         return;
     }
 
-    // ВРЕМЕННО делаем кнопку видимой для проверки
-    secretBtn.style.width = "80px";
-    secretBtn.style.height = "80px";
-    secretBtn.style.opacity = "0.3";
-    secretBtn.style.background = "red";
-    secretBtn.style.zIndex = "99999";
 
     let snakeVisible = false;
     let gameInterval = null;
