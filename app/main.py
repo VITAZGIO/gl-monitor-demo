@@ -1,12 +1,19 @@
-from contextlib import asynccontextmanager
 from datetime import datetime
 import asyncio
+import contextlib
 import random
 
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+app = FastAPI(title="GL Monitor Demo")
+
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+templates = Jinja2Templates(directory="app/templates")
+
+updater_task = None
 
 def now_str():
     return datetime.now().strftime("%d.%m.%Y %H:%M:%S")
@@ -33,7 +40,6 @@ DEVICES = {
 }
 
 def update_device(device: dict):
-    # Иногда устройство теряет связь
     if device["connected"] and random.random() < 0.08:
         device["connected"] = False
         device["errors"] = "Нет связи"
@@ -42,7 +48,6 @@ def update_device(device: dict):
         device["last_updated"] = now_str()
         return
 
-    # Иногда связь восстанавливается
     if not device["connected"] and random.random() < 0.35:
         device["connected"] = True
         device["input_pressure"] = round(random.uniform(3.0, 5.5), 1)
@@ -53,29 +58,22 @@ def update_device(device: dict):
         device["last_updated"] = now_str()
         return
 
-    # Если нет связи — просто обновим время
     if not device["connected"]:
         device["last_updated"] = now_str()
         return
 
-    # Плавное изменение давления
-    input_delta = random.uniform(-0.3, 0.3)
-    system_delta = random.uniform(-0.3, 0.3)
-
     device["input_pressure"] = round(
-        min(6.0, max(1.0, device["input_pressure"] + input_delta)), 1
+        min(6.0, max(1.0, device["input_pressure"] + random.uniform(-0.3, 0.3))), 1
     )
     device["system_pressure"] = round(
-        min(5.8, max(0.8, device["system_pressure"] + system_delta)), 1
+        min(5.8, max(0.8, device["system_pressure"] + random.uniform(-0.3, 0.3))), 1
     )
 
-    # Системное давление не должно быть сильно больше входного
     if device["system_pressure"] > device["input_pressure"]:
         device["system_pressure"] = round(
             max(0.0, device["input_pressure"] - random.uniform(0.1, 0.5)), 1
         )
 
-    # Логика ошибок
     if device["input_pressure"] < 2.0:
         device["errors"] = "Предупреждение: низкое входное давление"
     elif device["system_pressure"] < 1.5:
@@ -93,22 +91,19 @@ async def device_updater():
             update_device(device)
         await asyncio.sleep(3)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    task = asyncio.create_task(device_updater())
-    try:
-        yield
-    finally:
-        task.cancel()
+@app.on_event("startup")
+async def startup_event():
+    global updater_task
+    updater_task = asyncio.create_task(device_updater())
+    print("device_updater started")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    global updater_task
+    if updater_task:
+        updater_task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
-            await task
-
-import contextlib
-
-app = FastAPI(title="GL Monitor Demo", lifespan=lifespan)
-
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
-templates = Jinja2Templates(directory="app/templates")
+            await updater_task
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
