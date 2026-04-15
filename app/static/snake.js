@@ -14,8 +14,9 @@ function toggleSnake() {
 
     snakeActive = true;
     container.innerHTML = `
-        <div id="snake-wrapper" style="position: relative; width: 300px; height: 300px;">
-            <canvas id="snake" width="300" height="300"></canvas>
+        <div id="snake-wrapper" style="position: relative; width: 300px;">
+            <canvas id="snake" width="300" height="300" style="display:block;"></canvas>
+
             <div id="snake-overlay" style="
                 display: none;
                 position: absolute;
@@ -33,6 +34,18 @@ function toggleSnake() {
                 Игра окончена
 
 Нажми стрелку, чтобы начать заново
+            </div>
+
+            <div id="snake-stats" style="
+                margin-top: 8px;
+                color: #ddd;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                text-align: center;
+                user-select: none;
+            ">
+                Счёт: <span id="snake-score">0</span> |
+                Рекорд: <span id="snake-best">0</span>
             </div>
         </div>
     `;
@@ -54,21 +67,35 @@ function startSnake() {
     const canvas = document.getElementById("snake");
     const ctx = canvas.getContext("2d");
     const overlay = document.getElementById("snake-overlay");
+    const scoreEl = document.getElementById("snake-score");
+    const bestEl = document.getElementById("snake-best");
 
     const cellSize = 10;
     const gridSize = 30;
+    const storageKey = "snake_best_score";
 
     let snake = [{ x: 10, y: 10 }];
     let dx = 1;
     let dy = 0;
-    let food = randomFood();
+    let score = 0;
+    let bestScore = Number(localStorage.getItem(storageKey) || 0);
     let gameOver = false;
+
+    if (bestEl) {
+        bestEl.textContent = String(bestScore);
+    }
+
+    if (scoreEl) {
+        scoreEl.textContent = "0";
+    }
 
     if (overlay) {
         overlay.style.display = "none";
     }
 
     waitingForRestart = false;
+
+    let food = randomFood();
 
     document.onkeydown = (e) => {
         if (!snakeActive) return;
@@ -105,10 +132,31 @@ function startSnake() {
     };
 
     function randomFood() {
-        return {
-            x: Math.floor(Math.random() * gridSize),
-            y: Math.floor(Math.random() * gridSize)
-        };
+        let newFood;
+
+        do {
+            newFood = {
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize)
+            };
+        } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
+
+        return newFood;
+    }
+
+    function updateScore() {
+        if (scoreEl) {
+            scoreEl.textContent = String(score);
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem(storageKey, String(bestScore));
+        }
+
+        if (bestEl) {
+            bestEl.textContent = String(bestScore);
+        }
     }
 
     function endGame() {
@@ -149,6 +197,8 @@ function startSnake() {
         snake.unshift(head);
 
         if (head.x === food.x && head.y === food.y) {
+            score += 1;
+            updateScore();
             food = randomFood();
         } else {
             snake.pop();
@@ -165,7 +215,12 @@ function startSnake() {
         });
 
         ctx.fillStyle = "red";
-        ctx.fillRect(food.x * cellSize, food.y * cellSize, cellSize, cellSize);
+        ctx.fillRect(
+            food.x * cellSize,
+            food.y * cellSize,
+            cellSize,
+            cellSize
+        );
     }
 
     if (snakeInterval) {
