@@ -1,6 +1,9 @@
 const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
 
+let selectedDeviceId = "";
+let autoRefreshInterval = null;
+
 async function loadDevices() {
     try {
         const response = await fetch("/api/devices");
@@ -35,14 +38,39 @@ async function loadDeviceData(deviceId) {
             <div class="row"><span class="name">Ошибки:</span> ${data.errors}</div>
             <div class="row"><span class="name">Входное давление:</span> ${data.input_pressure}</div>
             <div class="row"><span class="name">Давление системы:</span> ${data.system_pressure}</div>
+            <div class="row"><span class="name">Последнее обновление:</span> ${data.last_updated}</div>
         `;
     } catch (error) {
         deviceData.innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
     }
 }
 
+function startAutoRefresh() {
+    stopAutoRefresh();
+
+    autoRefreshInterval = setInterval(() => {
+        if (selectedDeviceId) {
+            loadDeviceData(selectedDeviceId);
+        }
+    }, 3000);
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
 deviceSelect.addEventListener("change", (event) => {
-    loadDeviceData(event.target.value);
+    selectedDeviceId = event.target.value;
+    loadDeviceData(selectedDeviceId);
+
+    if (selectedDeviceId) {
+        startAutoRefresh();
+    } else {
+        stopAutoRefresh();
+    }
 });
 
 loadDevices();
