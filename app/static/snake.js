@@ -188,17 +188,6 @@
     // чтобы inline onclick в HTML тоже не ломался
     window.toggleSnake = toggleSnake;
 
-    // запуск по нажатию в правом нижнем углу экрана
-    document.addEventListener("pointerdown", (event) => {
-        const nearRight = event.clientX >= window.innerWidth - hotZoneSize;
-        const nearBottom = event.clientY >= window.innerHeight - hotZoneSize;
-
-        if (nearRight && nearBottom) {
-            event.preventDefault();
-            toggleSnake();
-        }
-    }, { passive: false });
-
     document.addEventListener("keydown", (event) => {
         if (!snakeVisible) return;
 
