@@ -9,7 +9,7 @@ let snakeState = null;
 let tetrisState = null;
 let platformerState = null;
 
-function toggleSnake() {
+function toggleFeature() {
     if (gameHubOpen) {
         closeGameHub();
     } else {
@@ -26,7 +26,7 @@ function openGameHub() {
 function closeGameHub() {
     stopAllGames();
 
-    const container = document.getElementById("snake-container");
+    const container = document.getElementById("feature-container");
     if (container) {
         container.innerHTML = "";
     }
@@ -35,7 +35,7 @@ function closeGameHub() {
 }
 
 function renderGameHub() {
-    const container = document.getElementById("snake-container");
+    const container = document.getElementById("feature-container");
     if (!container) return;
 
     container.innerHTML = `
