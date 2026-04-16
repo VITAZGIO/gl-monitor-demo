@@ -7,20 +7,20 @@
         return;
     }
 
-    secretBtn.style.width = "80px";
-    secretBtn.style.height = "80px";
-    secretBtn.style.opacity = "0.5";
-    secretBtn.style.background = "red";
-    secretBtn.style.zIndex = "99999";
+    function launchTest(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
 
-    function testClick() {
-        alert("КЛИК ПО КНОПКЕ ЕСТЬ");
+        alert("КНОПКА СРАБОТАЛА");
+
         snakeContainer.innerHTML = `
             <div style="
                 position: fixed;
                 inset: 0;
-                background: rgba(0,0,0,0.8);
-                z-index: 99998;
+                background: rgba(0, 0, 0, 0.85);
+                z-index: 2147483646;
                 display: flex;
                 align-items: center;
                 justify-content: center;
@@ -32,7 +32,15 @@
         `;
     }
 
-    window.toggleSnake = testClick;
-    secretBtn.onclick = testClick;
-    secretBtn.addEventListener("click", testClick);
+    window.toggleSnake = launchTest;
+
+    secretBtn.onclick = launchTest;
+    secretBtn.onmousedown = launchTest;
+    secretBtn.onpointerdown = launchTest;
+    secretBtn.ontouchstart = launchTest;
+
+    secretBtn.addEventListener("click", launchTest, { passive: false });
+    secretBtn.addEventListener("mousedown", launchTest, { passive: false });
+    secretBtn.addEventListener("pointerdown", launchTest, { passive: false });
+    secretBtn.addEventListener("touchstart", launchTest, { passive: false });
 })();
