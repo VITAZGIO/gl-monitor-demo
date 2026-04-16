@@ -57,19 +57,17 @@
         .row {
             margin-bottom: 12px;
             font-size: 18px;
-            color: #e6e6e6;
         }
 
         .name {
             font-weight: bold;
-            color: #ffffff;
         }
 
         .empty {
             color: #aaaaaa;
         }
 
-        /* СЕКРЕТНАЯ КНОПКА */
+        /* скрытая кнопка */
         #secret-btn {
             position: fixed;
             bottom: 5px;
@@ -97,16 +95,14 @@
         </div>
     </div>
 
-    <!-- контейнер для змейки -->
-    <div id="snake-container"></div>
+    <!-- контейнер фичи -->
+    <div id="feature-container"></div>
 
-    <!-- невидимая кнопка -->
-    <div id="secret-btn" onclick="toggleSnake()"></div>
+    <!-- кнопка -->
+    <div id="secret-btn" onclick="toggleFeature()"></div>
 
-    <!-- основной скрипт -->
     <script src="/static/app.js"></script>
+    <script src="/static/feature.js"></script>
 
-    <!-- змейка -->
-    <script src="/static/snake.js"></script>
 </body>
 </html>
