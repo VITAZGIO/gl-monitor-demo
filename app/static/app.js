@@ -1,9 +1,16 @@
 const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
 
+let selectedDeviceId = "";
+let autoRefreshInterval = null;
+
+// загрузка списка устройств
 async function loadDevices() {
     try {
-        const response = await fetch("/api/devices");
+        const response = await fetch("/api/devices?t=" + Date.now(), {
+            cache: "no-store"
+        });
+
         const data = await response.json();
 
         deviceSelect.innerHTML = '<option value="">-- Выберите устройство --</option>';
@@ -14,11 +21,14 @@ async function loadDevices() {
             option.textContent = device;
             deviceSelect.appendChild(option);
         });
+
     } catch (error) {
+        console.error("Ошибка загрузки устройств:", error);
         deviceSelect.innerHTML = '<option value="">Ошибка загрузки</option>';
     }
 }
 
+// загрузка данных выбранного устройства
 async function loadDeviceData(deviceId) {
     if (!deviceId) {
         deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
@@ -26,7 +36,10 @@ async function loadDeviceData(deviceId) {
     }
 
     try {
-        const response = await fetch(`/api/devices/${deviceId}`);
+        const response = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, {
+            cache: "no-store"
+        });
+
         const data = await response.json();
 
         deviceData.innerHTML = `
@@ -36,13 +49,45 @@ async function loadDeviceData(deviceId) {
             <div class="row"><span class="name">Входное давление:</span> ${data.input_pressure}</div>
             <div class="row"><span class="name">Давление системы:</span> ${data.system_pressure}</div>
         `;
+
     } catch (error) {
+        console.error("Ошибка загрузки данных:", error);
         deviceData.innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
     }
 }
 
-deviceSelect.addEventListener("change", (event) => {
-    loadDeviceData(event.target.value);
+// запуск автообновления
+function startAutoRefresh() {
+    stopAutoRefresh();
+
+    autoRefreshInterval = setInterval(() => {
+        if (selectedDeviceId) {
+            loadDeviceData(selectedDeviceId);
+        }
+    }, 3000);
+}
+
+// остановка автообновления
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
+    }
+}
+
+// обработка выбора устройства
+deviceSelect.addEventListener("change", async (event) => {
+    selectedDeviceId = event.target.value;
+
+    if (!selectedDeviceId) {
+        stopAutoRefresh();
+        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        return;
+    }
+
+    await loadDeviceData(selectedDeviceId);
+    startAutoRefresh();
 });
 
+// старт
 loadDevices();
