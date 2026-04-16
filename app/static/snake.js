@@ -1,9 +1,8 @@
 (function () {
     const snakeContainer = document.getElementById("snake-container");
-    const secretBtn = document.getElementById("secret-btn");
 
-    if (!snakeContainer || !secretBtn) {
-        console.error("snake init error: no snake-container or secret-btn");
+    if (!snakeContainer) {
+        console.error("snake init error: no snake-container");
         return;
     }
 
@@ -18,6 +17,7 @@
 
     const gridSize = 20;
     const tileCount = 20;
+    const hotZoneSize = 40;
 
     function createFood() {
         let newFood;
@@ -53,6 +53,7 @@
                     <div style="color:#fff; font-size:24px; margin-bottom:12px;">
                         Змейка
                     </div>
+
                     <canvas
                         id="snake-canvas"
                         width="${gridSize * tileCount}"
@@ -64,12 +65,15 @@
                             margin:0 auto 12px auto;
                         "
                     ></canvas>
+
                     <div id="snake-score" style="color:#fff; margin-bottom:6px;">
                         Съедено ягод: ${score}
                     </div>
+
                     <div id="snake-record" style="color:#aaa;">
                         Рекорд: ${record}
                     </div>
+
                     <div style="color:#888; margin-top:10px; font-size:14px;">
                         Управление: стрелки. ESC — закрыть
                     </div>
@@ -172,12 +176,7 @@
         snakeContainer.innerHTML = "";
     }
 
-    function toggleSnakeInternal(event) {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-
+    function toggleSnake() {
         if (snakeVisible) {
             closeSnake();
         } else {
@@ -186,11 +185,19 @@
         }
     }
 
-    window.toggleSnake = toggleSnakeInternal;
+    // чтобы inline onclick в HTML тоже не ломался
+    window.toggleSnake = toggleSnake;
 
-    secretBtn.addEventListener("pointerdown", toggleSnakeInternal, { passive: false });
-    secretBtn.addEventListener("mousedown", toggleSnakeInternal, { passive: false });
-    secretBtn.addEventListener("touchstart", toggleSnakeInternal, { passive: false });
+    // запуск по нажатию в правом нижнем углу экрана
+    document.addEventListener("pointerdown", (event) => {
+        const nearRight = event.clientX >= window.innerWidth - hotZoneSize;
+        const nearBottom = event.clientY >= window.innerHeight - hotZoneSize;
+
+        if (nearRight && nearBottom) {
+            event.preventDefault();
+            toggleSnake();
+        }
+    }, { passive: false });
 
     document.addEventListener("keydown", (event) => {
         if (!snakeVisible) return;
