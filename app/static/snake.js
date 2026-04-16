@@ -49,7 +49,7 @@ function renderGameHub() {
             z-index: 9998;
         ">
             <div style="
-                width: 520px;
+                width: 680px;
                 max-width: calc(100vw - 30px);
                 background: #1e1e1e;
                 border: 1px solid #444;
@@ -714,7 +714,7 @@ function startTetris() {
 }
 
 /* =========================
-   PLATFORMER
+   PLATFORMER BIG LEVEL
 ========================= */
 
 function renderPlatformerUI() {
@@ -726,7 +726,7 @@ function renderPlatformerUI() {
     content.innerHTML = `
         <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap;">
             <div style="position: relative;">
-                <canvas id="platformer" width="480" height="270" style="
+                <canvas id="platformer" width="620" height="320" style="
                     display:block;
                     background:#6fc2ff;
                     border:2px solid #555;
@@ -751,12 +751,12 @@ function renderPlatformerUI() {
                 "></div>
             </div>
 
-            <div style="min-width: 110px; color:#ddd; font-size:14px; line-height:1.8;">
+            <div style="min-width: 140px; color:#ddd; font-size:14px; line-height:1.8;">
                 <div>Очки: <span id="platformer-score">0</span></div>
                 <div>Рекорд: <span id="platformer-best">${best}</span></div>
                 <div style="margin-top: 12px; color:#aaa;">
-                    ← → или A D
-                    <br>Прыжок: ↑ / W / Space
+                    ← → / A D — идти
+                    <br>↑ / W / Space — прыжок
                     <br>Enter — рестарт
                 </div>
             </div>
@@ -775,68 +775,142 @@ function startPlatformer() {
 
     const storageKey = "platformer_best_score";
 
-    const gravity = 0.45;
-    const moveSpeed = 2.5;
-    const jumpPower = -8.5;
+    const gravity = 0.42;
+    const moveSpeed = 2.8;
+    const jumpPower = -8.8;
+
+    const viewWidth = canvas.width;
+    const viewHeight = canvas.height;
 
     let score = 0;
     let bestScore = Number(localStorage.getItem(storageKey) || 0);
     let gameOver = false;
     let won = false;
+    let cameraX = 0;
 
     if (scoreEl) scoreEl.textContent = "0";
     if (bestEl) bestEl.textContent = String(bestScore);
     if (overlay) overlay.style.display = "none";
 
     const world = {
-        width: 480,
-        height: 270,
-        groundY: 230
+        width: 4200,
+        height: 320,
+        groundY: 260
     };
 
     const player = {
-        x: 30,
-        y: 190,
+        x: 40,
+        y: 220,
         w: 18,
-        h: 26,
+        h: 28,
         vx: 0,
         vy: 0,
         onGround: false,
         facing: 1
     };
 
+    const groundSegments = [
+        { x: 0, w: 430 },
+        { x: 490, w: 250 },
+        { x: 800, w: 420 },
+        { x: 1280, w: 280 },
+        { x: 1620, w: 460 },
+        { x: 2140, w: 290 },
+        { x: 2490, w: 420 },
+        { x: 2970, w: 320 },
+        { x: 3350, w: 370 },
+        { x: 3780, w: 420 }
+    ];
+
     const platforms = [
-        { x: 0, y: 230, w: 480, h: 40 },
-        { x: 90, y: 190, w: 70, h: 12 },
-        { x: 190, y: 165, w: 80, h: 12 },
-        { x: 310, y: 140, w: 70, h: 12 },
-        { x: 380, y: 190, w: 60, h: 12 }
+        { x: 180, y: 220, w: 60, h: 12 },
+        { x: 260, y: 190, w: 60, h: 12 },
+        { x: 560, y: 210, w: 60, h: 12 },
+        { x: 880, y: 220, w: 60, h: 12 },
+        { x: 960, y: 190, w: 60, h: 12 },
+        { x: 1040, y: 160, w: 60, h: 12 },
+        { x: 1360, y: 210, w: 70, h: 12 },
+        { x: 1460, y: 180, w: 70, h: 12 },
+        { x: 1720, y: 215, w: 70, h: 12 },
+        { x: 1800, y: 185, w: 70, h: 12 },
+        { x: 1880, y: 155, w: 70, h: 12 },
+        { x: 2220, y: 205, w: 70, h: 12 },
+        { x: 2320, y: 175, w: 70, h: 12 },
+        { x: 2590, y: 220, w: 60, h: 12 },
+        { x: 2670, y: 190, w: 60, h: 12 },
+        { x: 3050, y: 210, w: 70, h: 12 },
+        { x: 3150, y: 180, w: 70, h: 12 },
+        { x: 3430, y: 220, w: 70, h: 12 },
+        { x: 3510, y: 190, w: 70, h: 12 },
+        { x: 3860, y: 210, w: 70, h: 12 },
+        { x: 3940, y: 180, w: 70, h: 12 }
+    ];
+
+    const blocks = [
+        { x: 330, y: 180, w: 22, h: 22 },
+        { x: 352, y: 180, w: 22, h: 22 },
+        { x: 374, y: 180, w: 22, h: 22 },
+
+        { x: 1100, y: 150, w: 22, h: 22 },
+        { x: 1122, y: 150, w: 22, h: 22 },
+        { x: 1144, y: 150, w: 22, h: 22 },
+        { x: 1166, y: 150, w: 22, h: 22 },
+
+        { x: 2000, y: 170, w: 22, h: 22 },
+        { x: 2022, y: 170, w: 22, h: 22 },
+        { x: 2044, y: 170, w: 22, h: 22 },
+
+        { x: 2840, y: 180, w: 22, h: 22 },
+        { x: 2862, y: 180, w: 22, h: 22 },
+        { x: 2884, y: 180, w: 22, h: 22 },
+        { x: 2906, y: 180, w: 22, h: 22 },
+
+        { x: 3640, y: 165, w: 22, h: 22 },
+        { x: 3662, y: 165, w: 22, h: 22 },
+        { x: 3684, y: 165, w: 22, h: 22 }
     ];
 
     const coins = [
-        { x: 115, y: 165, r: 6, taken: false },
-        { x: 225, y: 140, r: 6, taken: false },
-        { x: 335, y: 115, r: 6, taken: false },
-        { x: 410, y: 165, r: 6, taken: false }
+        { x: 195, y: 195, r: 6, taken: false },
+        { x: 275, y: 165, r: 6, taken: false },
+        { x: 575, y: 185, r: 6, taken: false },
+        { x: 895, y: 195, r: 6, taken: false },
+        { x: 975, y: 165, r: 6, taken: false },
+        { x: 1055, y: 135, r: 6, taken: false },
+        { x: 1378, y: 185, r: 6, taken: false },
+        { x: 1478, y: 155, r: 6, taken: false },
+        { x: 1738, y: 190, r: 6, taken: false },
+        { x: 1818, y: 160, r: 6, taken: false },
+        { x: 1898, y: 130, r: 6, taken: false },
+        { x: 2238, y: 180, r: 6, taken: false },
+        { x: 2338, y: 150, r: 6, taken: false },
+        { x: 2608, y: 195, r: 6, taken: false },
+        { x: 2688, y: 165, r: 6, taken: false },
+        { x: 3068, y: 185, r: 6, taken: false },
+        { x: 3168, y: 155, r: 6, taken: false },
+        { x: 3448, y: 195, r: 6, taken: false },
+        { x: 3528, y: 165, r: 6, taken: false },
+        { x: 3878, y: 185, r: 6, taken: false },
+        { x: 3958, y: 155, r: 6, taken: false },
+        { x: 4100, y: 225, r: 6, taken: false }
     ];
 
-    const enemy = {
-        x: 210,
-        y: 213,
-        w: 18,
-        h: 17,
-        minX: 180,
-        maxX: 300,
-        speed: 1.2,
-        dir: 1,
-        alive: true
-    };
+    const enemies = [
+        { x: 620, y: 243, w: 18, h: 17, minX: 520, maxX: 710, speed: 1.0, dir: 1, alive: true },
+        { x: 1010, y: 243, w: 18, h: 17, minX: 830, maxX: 1190, speed: 1.15, dir: -1, alive: true },
+        { x: 1450, y: 243, w: 18, h: 17, minX: 1300, maxX: 1530, speed: 1.05, dir: 1, alive: true },
+        { x: 1860, y: 243, w: 18, h: 17, minX: 1640, maxX: 2050, speed: 1.15, dir: -1, alive: true },
+        { x: 2350, y: 243, w: 18, h: 17, minX: 2160, maxX: 2410, speed: 1.2, dir: 1, alive: true },
+        { x: 2760, y: 243, w: 18, h: 17, minX: 2510, maxX: 2890, speed: 1.1, dir: -1, alive: true },
+        { x: 3200, y: 243, w: 18, h: 17, minX: 3000, maxX: 3270, speed: 1.25, dir: 1, alive: true },
+        { x: 3600, y: 243, w: 18, h: 17, minX: 3370, maxX: 3710, speed: 1.1, dir: -1, alive: true }
+    ];
 
     const flag = {
-        x: 445,
-        y: 170,
-        w: 10,
-        h: 60
+        x: 4120,
+        y: 160,
+        w: 12,
+        h: 100
     };
 
     const keys = {
@@ -930,7 +1004,7 @@ function startPlatformer() {
 
     function winGame() {
         won = true;
-        updateScore(50);
+        updateScore(100);
         showOverlay("Уровень пройден!<br><br>Нажми Enter для рестарта");
         if (platformerInterval) {
             clearInterval(platformerInterval);
@@ -938,13 +1012,38 @@ function startPlatformer() {
         }
     }
 
-    function updateEnemy() {
-        if (!enemy.alive) return;
+    function getSolidRects() {
+        const solids = [];
 
-        enemy.x += enemy.speed * enemy.dir;
+        for (const seg of groundSegments) {
+            solids.push({
+                x: seg.x,
+                y: world.groundY,
+                w: seg.w,
+                h: world.height - world.groundY
+            });
+        }
 
-        if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
-            enemy.dir *= -1;
+        for (const p of platforms) {
+            solids.push(p);
+        }
+
+        for (const b of blocks) {
+            solids.push(b);
+        }
+
+        return solids;
+    }
+
+    function updateEnemies() {
+        for (const enemy of enemies) {
+            if (!enemy.alive) continue;
+
+            enemy.x += enemy.speed * enemy.dir;
+
+            if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
+                enemy.dir *= -1;
+            }
         }
     }
 
@@ -966,23 +1065,38 @@ function startPlatformer() {
         player.y += player.vy;
         player.onGround = false;
 
-        for (const p of platforms) {
+        const solids = getSolidRects();
+
+        for (const solid of solids) {
             const playerRect = { x: player.x, y: player.y, w: player.w, h: player.h };
 
-            if (rectsIntersect(playerRect, p)) {
-                const previousBottom = player.y + player.h - player.vy;
+            if (rectsIntersect(playerRect, solid)) {
+                const prevBottom = player.y + player.h - player.vy;
+                const prevTop = player.y - player.vy;
+                const prevRight = player.x + player.w - player.vx;
+                const prevLeft = player.x - player.vx;
 
-                if (previousBottom <= p.y + 4 && player.vy >= 0) {
-                    player.y = p.y - player.h;
+                if (prevBottom <= solid.y + 4 && player.vy >= 0) {
+                    player.y = solid.y - player.h;
                     player.vy = 0;
                     player.onGround = true;
+                } else if (prevTop >= solid.y + solid.h - 4 && player.vy < 0) {
+                    player.y = solid.y + solid.h;
+                    player.vy = 0;
+                } else if (prevRight <= solid.x + 4 && player.vx > 0) {
+                    player.x = solid.x - player.w;
+                } else if (prevLeft >= solid.x + solid.w - 4 && player.vx < 0) {
+                    player.x = solid.x + solid.w;
                 }
             }
         }
 
-        if (player.y > world.height) {
+        if (player.y > world.height + 60) {
             loseGame();
         }
+
+        cameraX = player.x - 220;
+        cameraX = Math.max(0, Math.min(world.width - viewWidth, cameraX));
     }
 
     function updateCoins() {
@@ -995,18 +1109,21 @@ function startPlatformer() {
     }
 
     function updateEnemyCollision() {
-        if (!enemy.alive) return;
+        for (const enemy of enemies) {
+            if (!enemy.alive) continue;
 
-        if (rectsIntersect(player, enemy)) {
-            const playerBottom = player.y + player.h;
-            const enemyTop = enemy.y;
+            if (rectsIntersect(player, enemy)) {
+                const playerBottom = player.y + player.h;
+                const enemyTop = enemy.y;
 
-            if (player.vy > 0 && playerBottom - 6 <= enemyTop + 8) {
-                enemy.alive = false;
-                player.vy = -5.5;
-                updateScore(20);
-            } else {
-                loseGame();
+                if (player.vy > 0 && playerBottom - 6 <= enemyTop + 8) {
+                    enemy.alive = false;
+                    player.vy = -5.4;
+                    updateScore(25);
+                } else {
+                    loseGame();
+                    return;
+                }
             }
         }
     }
@@ -1018,47 +1135,86 @@ function startPlatformer() {
     }
 
     function drawBackground() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        const sky = ctx.createLinearGradient(0, 0, 0, viewHeight);
         sky.addColorStop(0, "#72c6ff");
         sky.addColorStop(1, "#d9f1ff");
         ctx.fillStyle = sky;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, viewWidth, viewHeight);
 
-        ctx.fillStyle = "#ffffffaa";
-        ctx.fillRect(50, 40, 40, 14);
-        ctx.fillRect(58, 32, 24, 14);
+        const clouds = [
+            { x: 80, y: 45 }, { x: 360, y: 35 }, { x: 720, y: 52 }, { x: 1080, y: 38 },
+            { x: 1450, y: 48 }, { x: 1840, y: 38 }, { x: 2220, y: 55 }, { x: 2600, y: 40 },
+            { x: 2980, y: 50 }, { x: 3380, y: 35 }, { x: 3780, y: 52 }
+        ];
 
-        ctx.fillRect(180, 30, 46, 14);
-        ctx.fillRect(190, 22, 26, 14);
+        for (const c of clouds) {
+            const cx = c.x - cameraX;
+            ctx.fillStyle = "#ffffffbb";
+            ctx.fillRect(cx, c.y, 46, 16);
+            ctx.fillRect(cx + 10, c.y - 8, 26, 16);
+        }
 
-        ctx.fillRect(350, 55, 42, 14);
-        ctx.fillRect(360, 47, 22, 14);
+        const hills = [
+            { x: 120, w: 120, h: 55 },
+            { x: 670, w: 150, h: 72 },
+            { x: 1320, w: 120, h: 58 },
+            { x: 2080, w: 160, h: 76 },
+            { x: 2870, w: 130, h: 60 },
+            { x: 3550, w: 150, h: 74 }
+        ];
 
-        ctx.fillStyle = "#5eb14c";
-        ctx.fillRect(0, 230, canvas.width, 40);
+        for (const hill of hills) {
+            const hx = hill.x - cameraX;
+            ctx.fillStyle = "#79b85f";
+            ctx.beginPath();
+            ctx.moveTo(hx, world.groundY);
+            ctx.quadraticCurveTo(hx + hill.w / 2, world.groundY - hill.h, hx + hill.w, world.groundY);
+            ctx.closePath();
+            ctx.fill();
+        }
+    }
+
+    function drawGround() {
+        for (const seg of groundSegments) {
+            const x = seg.x - cameraX;
+
+            ctx.fillStyle = "#8b5a2b";
+            ctx.fillRect(x, world.groundY, seg.w, world.height - world.groundY);
+
+            ctx.fillStyle = "#b97a3b";
+            ctx.fillRect(x, world.groundY, seg.w, 5);
+        }
     }
 
     function drawPlatforms() {
         for (const p of platforms) {
-            if (p.y === 230) continue;
-
+            const x = p.x - cameraX;
             ctx.fillStyle = "#8b5a2b";
-            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillRect(x, p.y, p.w, p.h);
 
             ctx.fillStyle = "#b97a3b";
-            ctx.fillRect(p.x, p.y, p.w, 4);
+            ctx.fillRect(x, p.y, p.w, 4);
+        }
+    }
+
+    function drawBlocks() {
+        for (const b of blocks) {
+            const x = b.x - cameraX;
+            ctx.fillStyle = "#c8863b";
+            ctx.fillRect(x, b.y, b.w, b.h);
+            ctx.strokeStyle = "#7d4e18";
+            ctx.strokeRect(x, b.y, b.w, b.h);
         }
     }
 
     function drawCoins() {
         for (const coin of coins) {
             if (coin.taken) continue;
+            const x = coin.x - cameraX;
 
             ctx.fillStyle = "#ffd84a";
             ctx.beginPath();
-            ctx.arc(coin.x, coin.y, coin.r, 0, Math.PI * 2);
+            ctx.arc(x, coin.y, coin.r, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.strokeStyle = "#d9a400";
@@ -1066,56 +1222,66 @@ function startPlatformer() {
         }
     }
 
-    function drawEnemy() {
-        if (!enemy.alive) return;
+    function drawEnemies() {
+        for (const enemy of enemies) {
+            if (!enemy.alive) continue;
+            const x = enemy.x - cameraX;
 
-        ctx.fillStyle = "#8b3d1f";
-        ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
+            ctx.fillStyle = "#8b3d1f";
+            ctx.fillRect(x, enemy.y, enemy.w, enemy.h);
 
-        ctx.fillStyle = "#f1d0a0";
-        ctx.fillRect(enemy.x + 2, enemy.y + 2, enemy.w - 4, 5);
+            ctx.fillStyle = "#f1d0a0";
+            ctx.fillRect(x + 2, enemy.y + 2, enemy.w - 4, 5);
+        }
     }
 
     function drawFlag() {
+        const x = flag.x - cameraX;
+
         ctx.fillStyle = "#444";
-        ctx.fillRect(flag.x, flag.y, 4, flag.h);
+        ctx.fillRect(x, flag.y, 4, flag.h);
 
         ctx.fillStyle = "#ff4d4d";
         ctx.beginPath();
-        ctx.moveTo(flag.x + 4, flag.y);
-        ctx.lineTo(flag.x + 28, flag.y + 10);
-        ctx.lineTo(flag.x + 4, flag.y + 20);
+        ctx.moveTo(x + 4, flag.y);
+        ctx.lineTo(x + 34, flag.y + 14);
+        ctx.lineTo(x + 4, flag.y + 28);
         ctx.closePath();
         ctx.fill();
     }
 
     function drawPlayer() {
+        const x = player.x - cameraX;
+
         ctx.fillStyle = "#d33";
-        ctx.fillRect(player.x, player.y, player.w, player.h);
+        ctx.fillRect(x, player.y, player.w, player.h);
 
         ctx.fillStyle = "#2244cc";
-        ctx.fillRect(player.x, player.y + 12, player.w, 14);
+        ctx.fillRect(x, player.y + 12, player.w, 14);
 
         ctx.fillStyle = "#ffcc99";
-        ctx.fillRect(player.x + 3, player.y + 3, 12, 8);
+        ctx.fillRect(x + 3, player.y + 3, 12, 8);
 
         ctx.fillStyle = "#aa0000";
-        ctx.fillRect(player.x + 1, player.y, 16, 5);
+        ctx.fillRect(x + 1, player.y, 16, 5);
     }
 
     function draw() {
+        ctx.clearRect(0, 0, viewWidth, viewHeight);
         drawBackground();
+        drawGround();
         drawPlatforms();
+        drawBlocks();
         drawCoins();
         drawFlag();
-        drawEnemy();
+        drawEnemies();
         drawPlayer();
     }
 
     function tick() {
         if (!gameHubOpen || activeGame !== "platformer" || gameOver || won) return;
 
-        updateEnemy();
+        updateEnemies();
         updatePlayer();
         updateCoins();
         updateEnemyCollision();
