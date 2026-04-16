@@ -15,7 +15,7 @@
         }
 
         .container {
-            max-width: 700px;
+            max-width: 900px;
             margin: 0 auto;
             background: #2a2a2a;
             padding: 24px;
@@ -67,6 +67,17 @@
             color: #aaaaaa;
         }
 
+        .chart-title {
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 20px;
+        }
+
+        .chart-wrap {
+            position: relative;
+            height: 320px;
+        }
+
         /* скрытая кнопка */
         #secret-btn {
             position: fixed;
@@ -93,6 +104,13 @@
         <div class="card" id="deviceData">
             <div class="empty">Выберите устройство</div>
         </div>
+
+        <div class="card">
+            <h2 class="chart-title">График давления системы</h2>
+            <div class="chart-wrap">
+                <canvas id="pressureChart"></canvas>
+            </div>
+        </div>
     </div>
 
     <!-- контейнер фичи -->
@@ -101,8 +119,8 @@
     <!-- кнопка -->
     <div id="secret-btn" onclick="toggleFeature()"></div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/app.js"></script>
     <script src="/static/feature.js"></script>
-
 </body>
 </html>

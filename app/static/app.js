@@ -1,8 +1,73 @@
 const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
+const chartCanvas = document.getElementById("pressureChart");
 
 let selectedDeviceId = "";
 let interval = null;
+let pressureChart = null;
+
+function createChart() {
+    pressureChart = new Chart(chartCanvas, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Давление системы, бар",
+                    data: [],
+                    borderColor: "#4bc0c0",
+                    backgroundColor: "rgba(75, 192, 192, 0.15)",
+                    tension: 0.25,
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "#e6e6e6",
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255, 255, 255, 0.08)",
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255, 255, 255, 0.08)",
+                    },
+                },
+            },
+        },
+    });
+}
+
+function clearChart() {
+    if (!pressureChart) return;
+
+    pressureChart.data.labels = [];
+    pressureChart.data.datasets[0].data = [];
+    pressureChart.update();
+}
+
+function formatTime(isoString) {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString("ru-RU");
+}
 
 async function loadDevices() {
     const res = await fetch("/api/devices?t=" + Date.now(), { cache: "no-store" });
@@ -25,6 +90,12 @@ async function loadDevice(deviceId) {
     }
 
     const res = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, { cache: "no-store" });
+
+    if (!res.ok) {
+        deviceData.innerHTML = '<div class="empty">Не удалось загрузить данные устройства</div>';
+        return;
+    }
+
     const data = await res.json();
 
     deviceData.innerHTML = `
@@ -36,15 +107,45 @@ async function loadDevice(deviceId) {
     `;
 }
 
+async function loadDeviceHistory(deviceId) {
+    if (!deviceId) {
+        clearChart();
+        return;
+    }
+
+    const res = await fetch(`/api/devices/${deviceId}/history?t=${Date.now()}`, { cache: "no-store" });
+
+    if (!res.ok) {
+        clearChart();
+        return;
+    }
+
+    const history = await res.json();
+
+    pressureChart.data.labels = history.map(point => formatTime(point.timestamp));
+    pressureChart.data.datasets[0].data = history.map(point => point.value);
+    pressureChart.update();
+}
+
+async function refreshSelectedDevice() {
+    if (!selectedDeviceId) return;
+
+    await loadDevice(selectedDeviceId);
+    await loadDeviceHistory(selectedDeviceId);
+}
+
 function startAuto() {
     stopAuto();
     interval = setInterval(() => {
-        if (selectedDeviceId) loadDevice(selectedDeviceId);
+        refreshSelectedDevice();
     }, 3000);
 }
 
 function stopAuto() {
-    if (interval) clearInterval(interval);
+    if (interval) {
+        clearInterval(interval);
+        interval = null;
+    }
 }
 
 deviceSelect.addEventListener("change", async (e) => {
@@ -52,11 +153,14 @@ deviceSelect.addEventListener("change", async (e) => {
 
     if (!selectedDeviceId) {
         stopAuto();
+        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        clearChart();
         return;
     }
 
-    await loadDevice(selectedDeviceId);
+    await refreshSelectedDevice();
     startAuto();
 });
 
+createChart();
 loadDevices();
