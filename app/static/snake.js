@@ -3,9 +3,11 @@ let activeGame = "snake";
 
 let snakeInterval = null;
 let tetrisInterval = null;
+let platformerInterval = null;
 
 let snakeState = null;
 let tetrisState = null;
+let platformerState = null;
 
 function toggleSnake() {
     if (gameHubOpen) {
@@ -47,7 +49,7 @@ function renderGameHub() {
             z-index: 9998;
         ">
             <div style="
-                width: 420px;
+                width: 520px;
                 max-width: calc(100vw - 30px);
                 background: #1e1e1e;
                 border: 1px solid #444;
@@ -80,9 +82,11 @@ function renderGameHub() {
                     display: flex;
                     gap: 8px;
                     margin-bottom: 12px;
+                    flex-wrap: wrap;
                 ">
                     <button id="tab-snake" style="
                         flex: 1;
+                        min-width: 120px;
                         padding: 10px;
                         border-radius: 10px;
                         border: 1px solid ${activeGame === "snake" ? "#66cc66" : "#555"};
@@ -93,6 +97,7 @@ function renderGameHub() {
 
                     <button id="tab-tetris" style="
                         flex: 1;
+                        min-width: 120px;
                         padding: 10px;
                         border-radius: 10px;
                         border: 1px solid ${activeGame === "tetris" ? "#66ccff" : "#555"};
@@ -100,6 +105,17 @@ function renderGameHub() {
                         color: white;
                         cursor: pointer;
                     ">Тетрис</button>
+
+                    <button id="tab-platformer" style="
+                        flex: 1;
+                        min-width: 120px;
+                        padding: 10px;
+                        border-radius: 10px;
+                        border: 1px solid ${activeGame === "platformer" ? "#ffcc66" : "#555"};
+                        background: ${activeGame === "platformer" ? "#4a3315" : "#2d2d2d"};
+                        color: white;
+                        cursor: pointer;
+                    ">Платформер</button>
                 </div>
 
                 <div id="gamehub-content"></div>
@@ -119,6 +135,7 @@ function renderGameHub() {
     document.getElementById("gamehub-close")?.addEventListener("click", closeGameHub);
     document.getElementById("tab-snake")?.addEventListener("click", () => switchGame("snake"));
     document.getElementById("tab-tetris")?.addEventListener("click", () => switchGame("tetris"));
+    document.getElementById("tab-platformer")?.addEventListener("click", () => switchGame("platformer"));
 }
 
 function switchGame(gameName) {
@@ -137,6 +154,9 @@ function startActiveGame() {
     } else if (activeGame === "tetris") {
         renderTetrisUI();
         startTetris();
+    } else if (activeGame === "platformer") {
+        renderPlatformerUI();
+        startPlatformer();
     }
 }
 
@@ -151,8 +171,14 @@ function stopAllGames() {
         tetrisInterval = null;
     }
 
+    if (platformerInterval) {
+        clearInterval(platformerInterval);
+        platformerInterval = null;
+    }
+
     snakeState = null;
     tetrisState = null;
+    platformerState = null;
 }
 
 /* =========================
@@ -190,8 +216,7 @@ function renderSnakeUI() {
                     line-height: 1.5;
                 ">
                     Игра окончена
-                    
-
+                    <br><br>
                     Нажми стрелку, чтобы начать заново
                 </div>
 
@@ -402,8 +427,7 @@ function renderTetrisUI() {
                     line-height:1.5;
                 ">
                     Игра окончена
-                    
-
+                    <br><br>
                     Нажми Enter для рестарта
                 </div>
             </div>
@@ -411,14 +435,11 @@ function renderTetrisUI() {
             <div style="min-width: 90px; color:#ddd; font-size:14px; line-height:1.8;">
                 <div>Счёт: <span id="tetris-score">0</span></div>
                 <div>Рекорд: <span id="tetris-best">${best}</span></div>
-                <div style="margin-top: 12px; color: #aaa;">
+                <div style="margin-top: 12px; color:#aaa;">
                     ← → двигать
-                    
-↓ ускорить
-                    
-↑ / Space поворот
-                    
-Enter рестарт
+                    <br>↓ ускорить
+                    <br>↑ / Space поворот
+                    <br>Enter рестарт
                 </div>
             </div>
         </div>
@@ -693,6 +714,422 @@ function startTetris() {
 }
 
 /* =========================
+   PLATFORMER
+========================= */
+
+function renderPlatformerUI() {
+    const content = document.getElementById("gamehub-content");
+    if (!content) return;
+
+    const best = Number(localStorage.getItem("platformer_best_score") || 0);
+
+    content.innerHTML = `
+        <div style="display:flex; justify-content:center; gap:16px; flex-wrap:wrap;">
+            <div style="position: relative;">
+                <canvas id="platformer" width="480" height="270" style="
+                    display:block;
+                    background:#6fc2ff;
+                    border:2px solid #555;
+                    border-radius: 8px;
+                    max-width: 100%;
+                    height: auto;
+                "></canvas>
+
+                <div id="platformer-overlay" style="
+                    display:none;
+                    position:absolute;
+                    inset:0;
+                    background: rgba(0,0,0,0.68);
+                    color:white;
+                    font-size:18px;
+                    align-items:center;
+                    justify-content:center;
+                    text-align:center;
+                    padding:20px;
+                    box-sizing:border-box;
+                    line-height:1.5;
+                "></div>
+            </div>
+
+            <div style="min-width: 110px; color:#ddd; font-size:14px; line-height:1.8;">
+                <div>Очки: <span id="platformer-score">0</span></div>
+                <div>Рекорд: <span id="platformer-best">${best}</span></div>
+                <div style="margin-top: 12px; color:#aaa;">
+                    ← → или A D
+                    <br>Прыжок: ↑ / W / Space
+                    <br>Enter — рестарт
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function startPlatformer() {
+    const canvas = document.getElementById("platformer");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("platformer-overlay");
+    const scoreEl = document.getElementById("platformer-score");
+    const bestEl = document.getElementById("platformer-best");
+
+    const storageKey = "platformer_best_score";
+
+    const gravity = 0.45;
+    const moveSpeed = 2.5;
+    const jumpPower = -8.5;
+
+    let score = 0;
+    let bestScore = Number(localStorage.getItem(storageKey) || 0);
+    let gameOver = false;
+    let won = false;
+
+    if (scoreEl) scoreEl.textContent = "0";
+    if (bestEl) bestEl.textContent = String(bestScore);
+    if (overlay) overlay.style.display = "none";
+
+    const world = {
+        width: 480,
+        height: 270,
+        groundY: 230
+    };
+
+    const player = {
+        x: 30,
+        y: 190,
+        w: 18,
+        h: 26,
+        vx: 0,
+        vy: 0,
+        onGround: false,
+        facing: 1
+    };
+
+    const platforms = [
+        { x: 0, y: 230, w: 480, h: 40 },
+        { x: 90, y: 190, w: 70, h: 12 },
+        { x: 190, y: 165, w: 80, h: 12 },
+        { x: 310, y: 140, w: 70, h: 12 },
+        { x: 380, y: 190, w: 60, h: 12 }
+    ];
+
+    const coins = [
+        { x: 115, y: 165, r: 6, taken: false },
+        { x: 225, y: 140, r: 6, taken: false },
+        { x: 335, y: 115, r: 6, taken: false },
+        { x: 410, y: 165, r: 6, taken: false }
+    ];
+
+    const enemy = {
+        x: 210,
+        y: 213,
+        w: 18,
+        h: 17,
+        minX: 180,
+        maxX: 300,
+        speed: 1.2,
+        dir: 1,
+        alive: true
+    };
+
+    const flag = {
+        x: 445,
+        y: 170,
+        w: 10,
+        h: 60
+    };
+
+    const keys = {
+        left: false,
+        right: false
+    };
+
+    platformerState = {
+        handleKey(e) {
+            if (!gameHubOpen || activeGame !== "platformer") return;
+
+            if ((gameOver || won) && e.key === "Enter") {
+                e.preventDefault();
+                stopAllGames();
+                renderPlatformerUI();
+                startPlatformer();
+                return;
+            }
+
+            if (e.type === "keydown") {
+                if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+                    e.preventDefault();
+                    keys.left = true;
+                } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+                    e.preventDefault();
+                    keys.right = true;
+                } else if (
+                    e.key === "ArrowUp" ||
+                    e.key === "w" ||
+                    e.key === "W" ||
+                    e.key === " "
+                ) {
+                    e.preventDefault();
+                    if (!gameOver && !won && player.onGround) {
+                        player.vy = jumpPower;
+                        player.onGround = false;
+                    }
+                }
+            } else if (e.type === "keyup") {
+                if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
+                    keys.left = false;
+                } else if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
+                    keys.right = false;
+                }
+            }
+        }
+    };
+
+    function updateScore(add) {
+        score += add;
+        if (scoreEl) scoreEl.textContent = String(score);
+
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem(storageKey, String(bestScore));
+            if (bestEl) bestEl.textContent = String(bestScore);
+        }
+    }
+
+    function rectsIntersect(a, b) {
+        return (
+            a.x < b.x + b.w &&
+            a.x + a.w > b.x &&
+            a.y < b.y + b.h &&
+            a.y + a.h > b.y
+        );
+    }
+
+    function circleRectIntersect(circle, rect) {
+        const closestX = Math.max(rect.x, Math.min(circle.x, rect.x + rect.w));
+        const closestY = Math.max(rect.y, Math.min(circle.y, rect.y + rect.h));
+        const dx = circle.x - closestX;
+        const dy = circle.y - closestY;
+        return dx * dx + dy * dy < circle.r * circle.r;
+    }
+
+    function showOverlay(text) {
+        if (!overlay) return;
+        overlay.style.display = "flex";
+        overlay.innerHTML = text;
+    }
+
+    function loseGame() {
+        gameOver = true;
+        showOverlay("Ты проиграл<br><br>Нажми Enter для рестарта");
+        if (platformerInterval) {
+            clearInterval(platformerInterval);
+            platformerInterval = null;
+        }
+    }
+
+    function winGame() {
+        won = true;
+        updateScore(50);
+        showOverlay("Уровень пройден!<br><br>Нажми Enter для рестарта");
+        if (platformerInterval) {
+            clearInterval(platformerInterval);
+            platformerInterval = null;
+        }
+    }
+
+    function updateEnemy() {
+        if (!enemy.alive) return;
+
+        enemy.x += enemy.speed * enemy.dir;
+
+        if (enemy.x <= enemy.minX || enemy.x + enemy.w >= enemy.maxX) {
+            enemy.dir *= -1;
+        }
+    }
+
+    function updatePlayer() {
+        if (keys.left && !keys.right) {
+            player.vx = -moveSpeed;
+            player.facing = -1;
+        } else if (keys.right && !keys.left) {
+            player.vx = moveSpeed;
+            player.facing = 1;
+        } else {
+            player.vx = 0;
+        }
+
+        player.x += player.vx;
+        player.x = Math.max(0, Math.min(world.width - player.w, player.x));
+
+        player.vy += gravity;
+        player.y += player.vy;
+        player.onGround = false;
+
+        for (const p of platforms) {
+            const playerRect = { x: player.x, y: player.y, w: player.w, h: player.h };
+
+            if (rectsIntersect(playerRect, p)) {
+                const previousBottom = player.y + player.h - player.vy;
+
+                if (previousBottom <= p.y + 4 && player.vy >= 0) {
+                    player.y = p.y - player.h;
+                    player.vy = 0;
+                    player.onGround = true;
+                }
+            }
+        }
+
+        if (player.y > world.height) {
+            loseGame();
+        }
+    }
+
+    function updateCoins() {
+        for (const coin of coins) {
+            if (!coin.taken && circleRectIntersect(coin, player)) {
+                coin.taken = true;
+                updateScore(10);
+            }
+        }
+    }
+
+    function updateEnemyCollision() {
+        if (!enemy.alive) return;
+
+        if (rectsIntersect(player, enemy)) {
+            const playerBottom = player.y + player.h;
+            const enemyTop = enemy.y;
+
+            if (player.vy > 0 && playerBottom - 6 <= enemyTop + 8) {
+                enemy.alive = false;
+                player.vy = -5.5;
+                updateScore(20);
+            } else {
+                loseGame();
+            }
+        }
+    }
+
+    function updateFlagCollision() {
+        if (rectsIntersect(player, flag)) {
+            winGame();
+        }
+    }
+
+    function drawBackground() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        const sky = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        sky.addColorStop(0, "#72c6ff");
+        sky.addColorStop(1, "#d9f1ff");
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = "#ffffffaa";
+        ctx.fillRect(50, 40, 40, 14);
+        ctx.fillRect(58, 32, 24, 14);
+
+        ctx.fillRect(180, 30, 46, 14);
+        ctx.fillRect(190, 22, 26, 14);
+
+        ctx.fillRect(350, 55, 42, 14);
+        ctx.fillRect(360, 47, 22, 14);
+
+        ctx.fillStyle = "#5eb14c";
+        ctx.fillRect(0, 230, canvas.width, 40);
+    }
+
+    function drawPlatforms() {
+        for (const p of platforms) {
+            if (p.y === 230) continue;
+
+            ctx.fillStyle = "#8b5a2b";
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+
+            ctx.fillStyle = "#b97a3b";
+            ctx.fillRect(p.x, p.y, p.w, 4);
+        }
+    }
+
+    function drawCoins() {
+        for (const coin of coins) {
+            if (coin.taken) continue;
+
+            ctx.fillStyle = "#ffd84a";
+            ctx.beginPath();
+            ctx.arc(coin.x, coin.y, coin.r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = "#d9a400";
+            ctx.stroke();
+        }
+    }
+
+    function drawEnemy() {
+        if (!enemy.alive) return;
+
+        ctx.fillStyle = "#8b3d1f";
+        ctx.fillRect(enemy.x, enemy.y, enemy.w, enemy.h);
+
+        ctx.fillStyle = "#f1d0a0";
+        ctx.fillRect(enemy.x + 2, enemy.y + 2, enemy.w - 4, 5);
+    }
+
+    function drawFlag() {
+        ctx.fillStyle = "#444";
+        ctx.fillRect(flag.x, flag.y, 4, flag.h);
+
+        ctx.fillStyle = "#ff4d4d";
+        ctx.beginPath();
+        ctx.moveTo(flag.x + 4, flag.y);
+        ctx.lineTo(flag.x + 28, flag.y + 10);
+        ctx.lineTo(flag.x + 4, flag.y + 20);
+        ctx.closePath();
+        ctx.fill();
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = "#d33";
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+
+        ctx.fillStyle = "#2244cc";
+        ctx.fillRect(player.x, player.y + 12, player.w, 14);
+
+        ctx.fillStyle = "#ffcc99";
+        ctx.fillRect(player.x + 3, player.y + 3, 12, 8);
+
+        ctx.fillStyle = "#aa0000";
+        ctx.fillRect(player.x + 1, player.y, 16, 5);
+    }
+
+    function draw() {
+        drawBackground();
+        drawPlatforms();
+        drawCoins();
+        drawFlag();
+        drawEnemy();
+        drawPlayer();
+    }
+
+    function tick() {
+        if (!gameHubOpen || activeGame !== "platformer" || gameOver || won) return;
+
+        updateEnemy();
+        updatePlayer();
+        updateCoins();
+        updateEnemyCollision();
+        updateFlagCollision();
+        draw();
+    }
+
+    draw();
+
+    if (platformerInterval) clearInterval(platformerInterval);
+    platformerInterval = setInterval(tick, 1000 / 60);
+}
+
+/* =========================
    GLOBAL KEYS
 ========================= */
 
@@ -707,7 +1144,14 @@ document.addEventListener("keydown", (e) => {
 
     if (e.key === "Tab") {
         e.preventDefault();
-        switchGame(activeGame === "snake" ? "tetris" : "snake");
+
+        if (activeGame === "snake") {
+            switchGame("tetris");
+        } else if (activeGame === "tetris") {
+            switchGame("platformer");
+        } else {
+            switchGame("snake");
+        }
         return;
     }
 
@@ -715,5 +1159,15 @@ document.addEventListener("keydown", (e) => {
         snakeState.handleKey(e);
     } else if (activeGame === "tetris" && tetrisState?.handleKey) {
         tetrisState.handleKey(e);
+    } else if (activeGame === "platformer" && platformerState?.handleKey) {
+        platformerState.handleKey(e);
+    }
+});
+
+document.addEventListener("keyup", (e) => {
+    if (!gameHubOpen) return;
+
+    if (activeGame === "platformer" && platformerState?.handleKey) {
+        platformerState.handleKey(e);
     }
 });
