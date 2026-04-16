@@ -1,140 +1,197 @@
-(function () {
-    const snakeContainer = document.getElementById("snake-container");
+let snakeActive = false;
+let snakeInterval = null;
+let waitingForRestart = false;
 
-    if (!snakeContainer) {
-        console.error("snake init error: no snake-container");
+function toggleSnake() {
+    const container = document.getElementById("snake-container");
+
+    if (snakeActive) {
+        stopSnake();
+        container.innerHTML = "";
+        snakeActive = false;
         return;
     }
 
-    let snakeVisible = false;
-    let gameInterval = null;
-    let direction = "RIGHT";
-    let nextDirection = "RIGHT";
-    let snake = [];
-    let food = null;
+    snakeActive = true;
+    container.innerHTML = `
+        <div id="snake-wrapper" style="position: relative; width: 300px; margin: 20px auto 0 auto;">
+            <canvas id="snake" width="300" height="300" style="display:block; background:#111; border:2px solid #555;"></canvas>
+
+            <div id="snake-overlay" style="
+                display: none;
+                position: absolute;
+                inset: 0;
+                background: rgba(0,0,0,0.65);
+                color: white;
+                font-family: Arial, sans-serif;
+                font-size: 18px;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 20px;
+                box-sizing: border-box;
+            ">
+                Игра окончена
+                
+
+                Нажми стрелку, чтобы начать заново
+            </div>
+
+            <div id="snake-stats" style="
+                margin-top: 8px;
+                color: #ddd;
+                font-family: Arial, sans-serif;
+                font-size: 14px;
+                text-align: center;
+                user-select: none;
+            ">
+                Счёт: <span id="snake-score">0</span> |
+                Рекорд: <span id="snake-best">0</span>
+            </div>
+        </div>
+    `;
+
+    startSnake();
+}
+
+function stopSnake() {
+    if (snakeInterval) {
+        clearInterval(snakeInterval);
+        snakeInterval = null;
+    }
+
+    waitingForRestart = false;
+    document.onkeydown = null;
+}
+
+function startSnake() {
+    const canvas = document.getElementById("snake");
+    const ctx = canvas.getContext("2d");
+    const overlay = document.getElementById("snake-overlay");
+    const scoreEl = document.getElementById("snake-score");
+    const bestEl = document.getElementById("snake-best");
+
+    const cellSize = 10;
+    const gridSize = 30;
+    const storageKey = "snake_best_score";
+
+    let snake = [{ x: 10, y: 10 }];
+    let dx = 1;
+    let dy = 0;
     let score = 0;
-    let record = Number(localStorage.getItem("snakeRecord") || 0);
+    let bestScore = Number(localStorage.getItem(storageKey) || 0);
+    let gameOver = false;
 
-    const gridSize = 20;
-    const tileCount = 20;
-    const hotZoneSize = 40;
+    if (bestEl) {
+        bestEl.textContent = String(bestScore);
+    }
 
-    function createFood() {
+    if (scoreEl) {
+        scoreEl.textContent = "0";
+    }
+
+    if (overlay) {
+        overlay.style.display = "none";
+    }
+
+    waitingForRestart = false;
+
+    let food = randomFood();
+
+    document.onkeydown = (e) => {
+        if (!snakeActive) return;
+
+        const isArrow =
+            e.key === "ArrowUp" ||
+            e.key === "ArrowDown" ||
+            e.key === "ArrowLeft" ||
+            e.key === "ArrowRight";
+
+        if (!isArrow) return;
+
+        if (waitingForRestart) {
+            startSnake();
+            return;
+        }
+
+        if (e.key === "ArrowUp" && dy !== 1) {
+            dx = 0;
+            dy = -1;
+        }
+        if (e.key === "ArrowDown" && dy !== -1) {
+            dx = 0;
+            dy = 1;
+        }
+        if (e.key === "ArrowLeft" && dx !== 1) {
+            dx = -1;
+            dy = 0;
+        }
+        if (e.key === "ArrowRight" && dx !== -1) {
+            dx = 1;
+            dy = 0;
+        }
+    };
+
+    function randomFood() {
         let newFood;
 
         do {
             newFood = {
-                x: Math.floor(Math.random() * tileCount),
-                y: Math.floor(Math.random() * tileCount)
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize)
             };
         } while (snake.some(segment => segment.x === newFood.x && segment.y === newFood.y));
 
         return newFood;
     }
 
-    function renderSnakeGame() {
-        snakeContainer.innerHTML = `
-            <div id="snake-overlay" style="
-                position: fixed;
-                inset: 0;
-                background: rgba(0,0,0,0.7);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 2147483646;
-            ">
-                <div style="
-                    background: #1e1e1e;
-                    padding: 20px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-                    text-align: center;
-                ">
-                    <div style="color:#fff; font-size:24px; margin-bottom:12px;">
-                        Змейка
-                    </div>
+    function updateScore() {
+        if (scoreEl) {
+            scoreEl.textContent = String(score);
+        }
 
-                    <canvas
-                        id="snake-canvas"
-                        width="${gridSize * tileCount}"
-                        height="${gridSize * tileCount}"
-                        style="
-                            background:#111;
-                            border:2px solid #555;
-                            display:block;
-                            margin:0 auto 12px auto;
-                        "
-                    ></canvas>
+        if (score > bestScore) {
+            bestScore = score;
+            localStorage.setItem(storageKey, String(bestScore));
+        }
 
-                    <div id="snake-score" style="color:#fff; margin-bottom:6px;">
-                        Съедено ягод: ${score}
-                    </div>
+        if (bestEl) {
+            bestEl.textContent = String(bestScore);
+        }
+    }
 
-                    <div id="snake-record" style="color:#aaa;">
-                        Рекорд: ${record}
-                    </div>
+    function endGame() {
+        gameOver = true;
+        waitingForRestart = true;
 
-                    <div style="color:#888; margin-top:10px; font-size:14px;">
-                        Управление: стрелки. ESC — закрыть
-                    </div>
-                </div>
-            </div>
-        `;
+        if (snakeInterval) {
+            clearInterval(snakeInterval);
+            snakeInterval = null;
+        }
+
+        if (overlay) {
+            overlay.style.display = "flex";
+        }
     }
 
     function draw() {
-        const canvas = document.getElementById("snake-canvas");
-        if (!canvas) return;
+        if (gameOver) return;
 
-        const ctx = canvas.getContext("2d");
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#111";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        ctx.fillStyle = "red";
-        ctx.fillRect(food.x * gridSize, food.y * gridSize, gridSize - 2, gridSize - 2);
+        const nextX = snake[0].x + dx;
+        const nextY = snake[0].y + dy;
 
-        ctx.fillStyle = "lime";
-        snake.forEach(segment => {
-            ctx.fillRect(segment.x * gridSize, segment.y * gridSize, gridSize - 2, gridSize - 2);
-        });
+        if (nextX < 0 || nextX >= gridSize || nextY < 0 || nextY >= gridSize) {
+            endGame();
+            return;
+        }
 
-        const scoreEl = document.getElementById("snake-score");
-        const recordEl = document.getElementById("snake-record");
+        const head = { x: nextX, y: nextY };
 
-        if (scoreEl) scoreEl.textContent = `Съедено ягод: ${score}`;
-        if (recordEl) recordEl.textContent = `Рекорд: ${record}`;
-    }
-
-    function resetGame() {
-        snake = [
-            { x: 10, y: 10 },
-            { x: 9, y: 10 },
-            { x: 8, y: 10 }
-        ];
-        direction = "RIGHT";
-        nextDirection = "RIGHT";
-        score = 0;
-        food = createFood();
-    }
-
-    function step() {
-        direction = nextDirection;
-
-        const head = { ...snake[0] };
-
-        if (direction === "UP") head.y -= 1;
-        if (direction === "DOWN") head.y += 1;
-        if (direction === "LEFT") head.x -= 1;
-        if (direction === "RIGHT") head.x += 1;
-
-        if (head.x < 0) head.x = tileCount - 1;
-        if (head.x >= tileCount) head.x = 0;
-        if (head.y < 0) head.y = tileCount - 1;
-        if (head.y >= tileCount) head.y = 0;
-
-        const hitSelf = snake.some(segment => segment.x === head.x && segment.y === head.y);
-        if (hitSelf) {
-            resetGame();
-            draw();
+        if (snake.some(segment => segment.x === head.x && segment.y === head.y)) {
+            endGame();
             return;
         }
 
@@ -142,68 +199,34 @@
 
         if (head.x === food.x && head.y === food.y) {
             score += 1;
-
-            if (score > record) {
-                record = score;
-                localStorage.setItem("snakeRecord", String(record));
-            }
-
-            food = createFood();
+            updateScore();
+            food = randomFood();
         } else {
             snake.pop();
         }
 
-        draw();
+        ctx.fillStyle = "lime";
+        snake.forEach(segment => {
+            ctx.fillRect(
+                segment.x * cellSize,
+                segment.y * cellSize,
+                cellSize,
+                cellSize
+            );
+        });
+
+        ctx.fillStyle = "red";
+        ctx.fillRect(
+            food.x * cellSize,
+            food.y * cellSize,
+            cellSize,
+            cellSize
+        );
     }
 
-    function startGame() {
-        resetGame();
-        renderSnakeGame();
-        draw();
-
-        if (gameInterval) clearInterval(gameInterval);
-        gameInterval = setInterval(step, 150);
+    if (snakeInterval) {
+        clearInterval(snakeInterval);
     }
 
-    function closeSnake() {
-        snakeVisible = false;
-
-        if (gameInterval) {
-            clearInterval(gameInterval);
-            gameInterval = null;
-        }
-
-        snakeContainer.innerHTML = "";
-    }
-
-    function toggleSnake() {
-        if (snakeVisible) {
-            closeSnake();
-        } else {
-            snakeVisible = true;
-            startGame();
-        }
-    }
-
-    // чтобы inline onclick в HTML тоже не ломался
-    window.toggleSnake = toggleSnake;
-
-    document.addEventListener("keydown", (event) => {
-        if (!snakeVisible) return;
-
-        if (event.key === "Escape") {
-            closeSnake();
-            return;
-        }
-
-        if (event.key === "ArrowUp" && direction !== "DOWN") {
-            nextDirection = "UP";
-        } else if (event.key === "ArrowDown" && direction !== "UP") {
-            nextDirection = "DOWN";
-        } else if (event.key === "ArrowLeft" && direction !== "RIGHT") {
-            nextDirection = "LEFT";
-        } else if (event.key === "ArrowRight" && direction !== "LEFT") {
-            nextDirection = "RIGHT";
-        }
-    });
-})();
+    snakeInterval = setInterval(draw, 100);
+}
