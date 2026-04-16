@@ -1,6 +1,7 @@
 const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
 const chartCanvas = document.getElementById("pressureChart");
+const chartCard = document.getElementById("chartCard");
 
 let selectedDeviceId = "";
 let interval = null;
@@ -64,6 +65,14 @@ function clearChart() {
     pressureChart.update();
 }
 
+function showChart() {
+    chartCard.style.display = "block";
+}
+
+function hideChart() {
+    chartCard.style.display = "none";
+}
+
 function formatTime(isoString) {
     const date = new Date(isoString);
     return date.toLocaleTimeString("ru-RU");
@@ -110,6 +119,7 @@ async function loadDevice(deviceId) {
 async function loadDeviceHistory(deviceId) {
     if (!deviceId) {
         clearChart();
+        hideChart();
         return;
     }
 
@@ -117,6 +127,7 @@ async function loadDeviceHistory(deviceId) {
 
     if (!res.ok) {
         clearChart();
+        hideChart();
         return;
     }
 
@@ -125,6 +136,8 @@ async function loadDeviceHistory(deviceId) {
     pressureChart.data.labels = history.map(point => formatTime(point.timestamp));
     pressureChart.data.datasets[0].data = history.map(point => point.value);
     pressureChart.update();
+
+    showChart();
 }
 
 async function refreshSelectedDevice() {
@@ -155,12 +168,15 @@ deviceSelect.addEventListener("change", async (e) => {
         stopAuto();
         deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
         clearChart();
+        hideChart();
         return;
     }
 
+    showChart();
     await refreshSelectedDevice();
     startAuto();
 });
 
 createChart();
+hideChart();
 loadDevices();
