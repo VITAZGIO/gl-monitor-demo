@@ -4,4 +4,29 @@ services:
     container_name: gl-monitor-demo
     ports:
       - "8000:8000"
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+      MQTT_TOPIC: devices/+/telemetry
+    depends_on:
+      - mosquitto
+    restart: unless-stopped
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: gl-monitor-mosquitto
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    restart: unless-stopped
+
+  test-publisher:
+    build:
+      context: .
+      dockerfile: publisher.Dockerfile
+    container_name: gl-monitor-publisher
+    environment:
+      MQTT_HOST: mosquitto
+      MQTT_PORT: 1883
+    depends_on:
+      - mosquitto
     restart: unless-stopped
