@@ -107,8 +107,6 @@ gl-monitor-demo/
 - HTML страницы
 - разметка панели
 
-### app/static/feature.js
-- скрытая фича (пасхалка)
 
 ---
 
