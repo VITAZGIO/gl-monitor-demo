@@ -1,26 +1,28 @@
 from datetime import datetime
 
 HISTORY_LIMIT = 40
+OFFLINE_TIMEOUT_SECONDS = 10
 
 
-def make_history_point(value: float, timestamp: str | None = None):
+def now_iso() -> str:
+    return datetime.now().isoformat(timespec="seconds")
+
+
+def make_history_point(value: float, timestamp: str | None = None) -> dict:
     return {
-        "timestamp": timestamp or datetime.now().isoformat(timespec="seconds"),
+        "timestamp": timestamp or now_iso(),
         "value": round(float(value), 1),
     }
 
 
-def create_empty_device(device_id: str):
+def create_empty_device(device_id: str) -> dict:
     return {
         "device_id": device_id,
         "connected": False,
-        "errors": "Нет данных",
-        "input_pressure": 0.0,
-        "system_pressure": 0.0,
-        "history": [],
-        "last_update": None,
         "status": 0,
-        "online": False,
+        "setpoint": 0.0,
+        "last_seen": None,
+        "history": [],
     }
 
 
@@ -31,13 +33,13 @@ DEVICES = {
 }
 
 
-def ensure_device(device_id: str):
+def ensure_device(device_id: str) -> dict:
     if device_id not in DEVICES:
         DEVICES[device_id] = create_empty_device(device_id)
     return DEVICES[device_id]
 
 
-def add_history_point(device: dict, value: float, timestamp: str | None = None):
+def add_history_point(device: dict, value: float, timestamp: str | None = None) -> None:
     device["history"].append(make_history_point(value, timestamp))
     if len(device["history"]) > HISTORY_LIMIT:
         device["history"] = device["history"][-HISTORY_LIMIT:]

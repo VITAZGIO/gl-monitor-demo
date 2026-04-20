@@ -14,7 +14,7 @@ function createChart() {
             labels: [],
             datasets: [
                 {
-                    label: "Давление системы, бар",
+                    label: "Setpoint, бар",
                     data: [],
                     borderColor: "#4bc0c0",
                     backgroundColor: "rgba(75, 192, 192, 0.15)",
@@ -59,7 +59,6 @@ function createChart() {
 
 function clearChart() {
     if (!pressureChart) return;
-
     pressureChart.data.labels = [];
     pressureChart.data.datasets[0].data = [];
     pressureChart.update();
@@ -74,8 +73,30 @@ function hideChart() {
 }
 
 function formatTime(isoString) {
+    if (!isoString) return "—";
+
     const date = new Date(isoString);
     return date.toLocaleTimeString("ru-RU");
+}
+
+function formatDateTime(isoString) {
+    if (!isoString) return "Нет данных";
+
+    const date = new Date(isoString);
+    return date.toLocaleString("ru-RU");
+}
+
+function formatStatus(status) {
+    switch (status) {
+        case 0:
+            return "Норма";
+        case 1:
+            return "Предупреждение";
+        case 2:
+            return "Авария";
+        default:
+            return `Код ${status}`;
+    }
 }
 
 async function loadDevices() {
@@ -84,7 +105,7 @@ async function loadDevices() {
 
     deviceSelect.innerHTML = '<option value="">-- Выберите устройство --</option>';
 
-    data.devices.forEach(d => {
+    data.devices.forEach((d) => {
         const opt = document.createElement("option");
         opt.value = d;
         opt.textContent = d;
@@ -94,25 +115,31 @@ async function loadDevices() {
 
 async function loadDevice(deviceId) {
     if (!deviceId) {
-        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        deviceData.innerHTML = `
+            <p>Выберите устройство</p>
+        `;
         return;
     }
 
-    const res = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`/api/devices/${deviceId}?t=${Date.now()}`, {
+        cache: "no-store",
+    });
 
     if (!res.ok) {
-        deviceData.innerHTML = '<div class="empty">Не удалось загрузить данные устройства</div>';
+        deviceData.innerHTML = `
+            <p>Не удалось загрузить данные устройства</p>
+        `;
         return;
     }
 
     const data = await res.json();
 
     deviceData.innerHTML = `
-        <div class="row"><span class="name">Устройство:</span> ${data.device_id}</div>
-        <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
-        <div class="row"><span class="name">Ошибки:</span> ${data.errors}</div>
-        <div class="row"><span class="name">Входное давление:</span> ${data.input_pressure}</div>
-        <div class="row"><span class="name">Давление системы:</span> ${data.system_pressure}</div>
+        <p><strong>Устройство:</strong> ${data.device_id}</p>
+        <p><strong>Подключено:</strong> ${data.connected ? "Да" : "Нет"}</p>
+        <p><strong>Статус:</strong> ${formatStatus(data.status)}</p>
+        <p><strong>Setpoint:</strong> ${data.setpoint}</p>
+        <p><strong>Последнее сообщение:</strong> ${formatDateTime(data.last_seen)}</p>
     `;
 }
 
@@ -123,7 +150,9 @@ async function loadDeviceHistory(deviceId) {
         return;
     }
 
-    const res = await fetch(`/api/devices/${deviceId}/history?t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`/api/devices/${deviceId}/history?t=${Date.now()}`, {
+        cache: "no-store",
+    });
 
     if (!res.ok) {
         clearChart();
@@ -133,8 +162,8 @@ async function loadDeviceHistory(deviceId) {
 
     const history = await res.json();
 
-    pressureChart.data.labels = history.map(point => formatTime(point.timestamp));
-    pressureChart.data.datasets[0].data = history.map(point => point.value);
+    pressureChart.data.labels = history.map((point) => formatTime(point.timestamp));
+    pressureChart.data.datasets[0].data = history.map((point) => point.value);
     pressureChart.update();
 
     showChart();
@@ -166,7 +195,7 @@ deviceSelect.addEventListener("change", async (e) => {
 
     if (!selectedDeviceId) {
         stopAuto();
-        deviceData.innerHTML = '<div class="empty">Выберите устройство</div>';
+        deviceData.innerHTML = `<p>Выберите устройство</p>`;
         clearChart();
         hideChart();
         return;

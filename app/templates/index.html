@@ -1,126 +1,91 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GL Monitor Demo</title>
-
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background: #1e1e1e;
-            color: #e6e6e6;
             margin: 0;
-            padding: 40px;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: #f3f4f6;
         }
 
         .container {
-            max-width: 900px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: #2a2a2a;
             padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-            border: 1px solid #3a3a3a;
         }
 
         h1 {
-            margin-top: 0;
-            color: #f2f2f2;
+            margin-bottom: 24px;
+        }
+
+        .card {
+            background: #1f2937;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
         }
 
         label {
             display: block;
             margin-bottom: 8px;
             font-weight: bold;
-            color: #d0d0d0;
         }
 
         select {
             width: 100%;
+            max-width: 320px;
             padding: 10px;
-            font-size: 16px;
-            background: #3a3a3a;
-            color: #f0f0f0;
-            border: 1px solid #555;
             border-radius: 8px;
+            border: none;
+            background: #374151;
+            color: white;
         }
 
-        .card {
-            margin-top: 24px;
-            padding: 20px;
-            background: #333333;
-            border: 1px solid #4a4a4a;
-            border-radius: 10px;
+        #deviceData p {
+            margin: 8px 0;
         }
 
-        .row {
-            margin-bottom: 12px;
-            font-size: 18px;
-        }
-
-        .name {
-            font-weight: bold;
-        }
-
-        .empty {
-            color: #aaaaaa;
-        }
-
-        .chart-title {
-            margin-top: 0;
-            margin-bottom: 16px;
-            font-size: 20px;
-        }
-
-        .chart-wrap {
+        #chartWrap {
             position: relative;
             height: 320px;
         }
-
-        /* скрытая кнопка */
-        #secret-btn {
-            position: fixed;
-            bottom: 5px;
-            right: 5px;
-            width: 20px;
-            height: 20px;
-            opacity: 0.1;
-            cursor: pointer;
-            z-index: 9999;
-        }
     </style>
 </head>
-
 <body>
     <div class="container">
         <h1>Панель мониторинга шкафов GL</h1>
 
-        <label for="deviceSelect">Выбрать устройство</label>
-        <select id="deviceSelect">
-            <option value="">Загрузка...</option>
-        </select>
-
-        <div class="card" id="deviceData">
-            <div class="empty">Выберите устройство</div>
+        <div class="card">
+            <label for="deviceSelect">Выбрать устройство</label>
+            <select id="deviceSelect">
+                <option value="">Загрузка...</option>
+            </select>
         </div>
 
-        <div class="card" id="chartCard" style="display: none;">
-            <h2 class="chart-title">График давления системы</h2>
-            <div class="chart-wrap">
+        <div class="card">
+            <div id="deviceData">
+                <p>Выберите устройство</p>
+            </div>
+        </div>
+
+        <div class="card" id="chartCard">
+            <h2>График setpoint</h2>
+            <div id="chartWrap">
                 <canvas id="pressureChart"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- контейнер фичи -->
-    <div id="feature-container"></div>
+    <div id="snake-container"></div>
+    <button id="secret-btn" onclick="toggleSnake()" style="display: none;"></button>
 
-    <!-- кнопка -->
-    <div id="secret-btn" onclick="toggleFeature()"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/app.js"></script>
-    <script src="/static/feature.js"></script>
+    <script src="/static/snake.js"></script>
 </body>
 </html>
