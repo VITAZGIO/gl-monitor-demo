@@ -82,6 +82,32 @@
             height: 320px;
         }
 
+        .debug-box {
+            margin-top: 20px;
+            padding: 16px;
+            background: #0b1220;
+            border: 1px solid #334155;
+            border-radius: 10px;
+        }
+
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 12px;
+            color: #93c5fd;
+        }
+
+        .debug-pre {
+            margin: 0;
+            padding: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            background: #020617;
+            color: #cbd5e1;
+            border-radius: 8px;
+            border: 1px solid #1e293b;
+            font-size: 14px;
+        }
+
         #secret-btn {
             position: fixed;
             bottom: 5px;
@@ -109,7 +135,7 @@
         </div>
 
         <div class="card" id="chartCard" style="display: none;">
-            <h2 class="chart-title">График давления</h2>
+            <h2 class="chart-title">График уставки давления</h2>
             <div class="chart-wrap">
                 <canvas id="pressureChart"></canvas>
             </div>

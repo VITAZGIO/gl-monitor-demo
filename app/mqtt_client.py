@@ -16,18 +16,53 @@ MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 mqtt_client = None
 
 
+def now_dt() -> datetime:
+    return datetime.now(MOSCOW_TZ)
+
+
+def now_iso() -> str:
+    return now_dt().isoformat(timespec="seconds")
+
+
 def parse_iso_datetime(value: str | None) -> datetime | None:
     if not value:
         return None
 
     try:
-        return datetime.fromisoformat(value)
+        dt = datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            return dt.replace(tzinfo=MOSCOW_TZ)
+        return dt
     except ValueError:
         return None
 
 
+def parse_setpoint(payload: dict) -> float | None:
+    value = payload.get("setpoint")
+
+    if value is None:
+        return None
+
+    try:
+        return round(float(value), 1)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_status(payload: dict) -> int | None:
+    value = payload.get("status")
+
+    if value is None:
+        return None
+
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def refresh_devices_online_status() -> None:
-    now = datetime.now(MOSCOW_TZ)
+    now = now_dt()
 
     for device in DEVICES.values():
         last_seen_str = device.get("last_seen")
@@ -41,19 +76,29 @@ def refresh_devices_online_status() -> None:
         device["connected"] = diff <= OFFLINE_TIMEOUT_SECONDS
 
 
-def apply_telemetry(device_id: str, payload: dict) -> None:
+def apply_telemetry(device_id: str, topic: str, raw_payload: str, payload: dict) -> None:
     device = ensure_device(device_id)
 
-    setpoint = round(float(payload.get("setpoint", 0.0)), 1)
-    status = int(payload.get("status", 0))
-    timestamp = datetime.now(MOSCOW_TZ).isoformat(timespec="seconds")
+    parsed_setpoint = parse_setpoint(payload)
+    parsed_status = parse_status(payload)
+    timestamp = now_iso()
 
-    device["status"] = status
-    device["setpoint"] = setpoint
+    device["raw_topic"] = topic
+    device["raw_payload"] = raw_payload
     device["last_seen"] = timestamp
     device["connected"] = True
 
-    add_history_point(device, setpoint, timestamp)
+    if parsed_status is not None:
+        device["status"] = parsed_status
+
+    if parsed_setpoint is not None:
+        device["setpoint"] = parsed_setpoint
+        add_history_point(device, parsed_setpoint, timestamp)
+
+    print("MQTT received:")
+    print(f"  topic: {topic}")
+    print(f"  payload: {raw_payload}")
+    print(f"  parsed: setpoint={parsed_setpoint} status={parsed_status}")
 
 
 def on_connect(client, userdata, flags, rc, properties=None):
@@ -62,19 +107,43 @@ def on_connect(client, userdata, flags, rc, properties=None):
 
 
 def on_message(client, userdata, msg):
+    topic = msg.topic
+    raw_payload = msg.payload.decode("utf-8", errors="replace")
+
+    parts = topic.split("/")
+    if len(parts) < 3:
+        print("MQTT message skipped: invalid topic")
+        print(f"  topic: {topic}")
+        print(f"  payload: {raw_payload}")
+        return
+
+    device_id = parts[1]
+    device = ensure_device(device_id)
+    device["raw_topic"] = topic
+    device["raw_payload"] = raw_payload
+
     try:
-        payload = json.loads(msg.payload.decode("utf-8"))
-        parts = msg.topic.split("/")
+        payload = json.loads(raw_payload)
+    except json.JSONDecodeError as e:
+        print("MQTT JSON error:")
+        print(f"  topic: {topic}")
+        print(f"  payload: {raw_payload}")
+        print(f"  error: {e}")
+        return
 
-        if len(parts) < 3:
-            raise ValueError(f"Invalid topic: {msg.topic}")
+    if not isinstance(payload, dict):
+        print("MQTT message skipped: payload is not JSON object")
+        print(f"  topic: {topic}")
+        print(f"  payload: {raw_payload}")
+        return
 
-        device_id = parts[1]
-        apply_telemetry(device_id, payload)
-
-        print(f"MQTT received: {msg.topic} -> {payload}")
+    try:
+        apply_telemetry(device_id, topic, raw_payload, payload)
     except Exception as e:
-        print(f"MQTT message error: {e}")
+        print("MQTT message error:")
+        print(f"  topic: {topic}")
+        print(f"  payload: {raw_payload}")
+        print(f"  error: {e}")
 
 
 def start_mqtt():

@@ -14,7 +14,7 @@ function createChart() {
             labels: [],
             datasets: [
                 {
-                    label: "График, бар",
+                    label: "Уставка давления, бар",
                     data: [],
                     borderColor: "#4bc0c0",
                     backgroundColor: "rgba(75, 192, 192, 0.15)",
@@ -73,31 +73,31 @@ function hideChart() {
 }
 
 function formatTime(isoString) {
-    if (!isoString) return "—";
+    if (!isoString || isoString === "—") return "—";
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "—";
     return date.toLocaleTimeString("ru-RU");
 }
 
 function formatDateTime(isoString) {
-    if (!isoString) return "Нет данных";
+    if (!isoString || isoString === "—") return "Нет данных";
     const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "Нет данных";
     return date.toLocaleString("ru-RU");
 }
 
-function formatStatus(status) {
-    switch (status) {
-        case 0:
-            return "Норма";
-        case 1:
-            return "Предупреждение";
-        case 2:
-            return "Авария";
-        default:
-            return `Код ${status}`;
-    }
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
 }
 
 async function loadDevices() {
+    const previousValue = deviceSelect.value;
+
     const res = await fetch("/api/devices?t=" + Date.now(), { cache: "no-store" });
     const data = await res.json();
 
@@ -109,6 +109,12 @@ async function loadDevices() {
         opt.textContent = d;
         deviceSelect.appendChild(opt);
     });
+
+    if (previousValue && data.devices.includes(previousValue)) {
+        deviceSelect.value = previousValue;
+    } else if (selectedDeviceId && data.devices.includes(selectedDeviceId)) {
+        deviceSelect.value = selectedDeviceId;
+    }
 }
 
 async function loadDevice(deviceId) {
@@ -128,12 +134,22 @@ async function loadDevice(deviceId) {
 
     const data = await res.json();
 
+    const rawTopic = escapeHtml(data.raw_topic || "—");
+    const rawPayload = escapeHtml(data.raw_payload || "—");
+
     deviceData.innerHTML = `
-        <div class="row"><span class="name">Устройство:</span> ${data.device_id}</div>
+        <div class="row"><span class="name">Устройство:</span> ${escapeHtml(data.device_id || "—")}</div>
         <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
-        <div class="row"><span class="name">Статус:</span> ${formatStatus(data.status)}</div>
-        <div class="row"><span class="name">Установка давления:</span> ${data.setpoint}</div>
+        <div class="row"><span class="name">Статус:</span> ${escapeHtml(data.status_text || "Неизвестно")}</div>
+        <div class="row"><span class="name">Уставка давления:</span> ${escapeHtml(data.setpoint || "—")}</div>
         <div class="row"><span class="name">Последнее сообщение:</span> ${formatDateTime(data.last_seen)}</div>
+
+        <div class="debug-box">
+            <div class="debug-title">Debug</div>
+            <div class="row"><span class="name">Topic:</span> ${rawTopic}</div>
+            <div class="row"><span class="name">Raw payload:</span></div>
+            <pre class="debug-pre">${rawPayload}</pre>
+        </div>
     `;
 }
 
@@ -164,6 +180,8 @@ async function loadDeviceHistory(deviceId) {
 }
 
 async function refreshSelectedDevice() {
+    await loadDevices();
+
     if (!selectedDeviceId) return;
 
     await loadDevice(selectedDeviceId);

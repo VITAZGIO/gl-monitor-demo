@@ -22,18 +22,16 @@ def create_empty_device(device_id: str) -> dict:
     return {
         "device_id": device_id,
         "connected": False,
-        "status": 0,
-        "setpoint": 0.0,
+        "status": None,
+        "setpoint": None,
         "last_seen": None,
+        "raw_topic": "",
+        "raw_payload": "",
         "history": [],
     }
 
 
-DEVICES = {
-    "GL-001": create_empty_device("GL-001"),
-    "GL-002": create_empty_device("GL-002"),
-    "GL-003": create_empty_device("GL-003"),
-}
+DEVICES: dict[str, dict] = {}
 
 
 def ensure_device(device_id: str) -> dict:

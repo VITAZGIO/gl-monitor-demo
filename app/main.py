@@ -14,6 +14,16 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 
+def status_to_text(status: int | None) -> str:
+    if status == 0:
+        return "Норма"
+    if status == 1:
+        return "Предупреждение"
+    if status == 2:
+        return "Авария"
+    return "Неизвестно"
+
+
 @app.on_event("startup")
 async def startup_event():
     start_mqtt()
@@ -34,7 +44,7 @@ async def index(request: Request):
 @app.get("/api/devices")
 async def get_devices():
     refresh_devices_online_status()
-    return {"devices": list(DEVICES.keys())}
+    return {"devices": sorted(DEVICES.keys())}
 
 
 @app.get("/api/devices/{device_id}")
@@ -47,10 +57,17 @@ async def get_device_data(device_id: str):
 
     return {
         "device_id": device["device_id"],
-        "connected": device["connected"],
-        "status": device["status"],
-        "setpoint": f'{device["setpoint"]:.1f} бар',
-        "last_seen": device["last_seen"],
+        "connected": bool(device.get("connected", False)),
+        "status": device.get("status"),
+        "status_text": status_to_text(device.get("status")),
+        "setpoint": (
+            f'{device["setpoint"]:.1f} бар'
+            if device.get("setpoint") is not None
+            else "—"
+        ),
+        "last_seen": device.get("last_seen"),
+        "raw_topic": device.get("raw_topic") or "—",
+        "raw_payload": device.get("raw_payload") or "—",
     }
 
 
@@ -62,4 +79,4 @@ async def get_device_history(device_id: str):
     if not device:
         raise HTTPException(status_code=404, detail="Устройство не найдено")
 
-    return device["history"]
+    return device.get("history", [])
