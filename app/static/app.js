@@ -74,14 +74,12 @@ function hideChart() {
 
 function formatTime(isoString) {
     if (!isoString) return "—";
-
     const date = new Date(isoString);
     return date.toLocaleTimeString("ru-RU");
 }
 
 function formatDateTime(isoString) {
     if (!isoString) return "Нет данных";
-
     const date = new Date(isoString);
     return date.toLocaleString("ru-RU");
 }
@@ -115,9 +113,7 @@ async function loadDevices() {
 
 async function loadDevice(deviceId) {
     if (!deviceId) {
-        deviceData.innerHTML = `
-            <p>Выберите устройство</p>
-        `;
+        deviceData.innerHTML = `<div class="empty">Выберите устройство</div>`;
         return;
     }
 
@@ -126,20 +122,18 @@ async function loadDevice(deviceId) {
     });
 
     if (!res.ok) {
-        deviceData.innerHTML = `
-            <p>Не удалось загрузить данные устройства</p>
-        `;
+        deviceData.innerHTML = `<div class="empty">Не удалось загрузить данные устройства</div>`;
         return;
     }
 
     const data = await res.json();
 
     deviceData.innerHTML = `
-        <p><strong>Устройство:</strong> ${data.device_id}</p>
-        <p><strong>Подключено:</strong> ${data.connected ? "Да" : "Нет"}</p>
-        <p><strong>Статус:</strong> ${formatStatus(data.status)}</p>
-        <p><strong>Setpoint:</strong> ${data.setpoint}</p>
-        <p><strong>Последнее сообщение:</strong> ${formatDateTime(data.last_seen)}</p>
+        <div class="row"><span class="name">Устройство:</span> ${data.device_id}</div>
+        <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
+        <div class="row"><span class="name">Статус:</span> ${formatStatus(data.status)}</div>
+        <div class="row"><span class="name">Setpoint:</span> ${data.setpoint}</div>
+        <div class="row"><span class="name">Последнее сообщение:</span> ${formatDateTime(data.last_seen)}</div>
     `;
 }
 
@@ -195,13 +189,12 @@ deviceSelect.addEventListener("change", async (e) => {
 
     if (!selectedDeviceId) {
         stopAuto();
-        deviceData.innerHTML = `<p>Выберите устройство</p>`;
+        deviceData.innerHTML = `<div class="empty">Выберите устройство</div>`;
         clearChart();
         hideChart();
         return;
     }
 
-    showChart();
     await refreshSelectedDevice();
     startAuto();
 });
