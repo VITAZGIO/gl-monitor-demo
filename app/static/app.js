@@ -14,7 +14,7 @@ function createChart() {
             labels: [],
             datasets: [
                 {
-                    label: "Установка давления, бар",
+                    label: "График, бар",
                     data: [],
                     borderColor: "#4bc0c0",
                     backgroundColor: "rgba(75, 192, 192, 0.15)",
