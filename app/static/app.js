@@ -132,7 +132,7 @@ async function loadDevice(deviceId) {
         <div class="row"><span class="name">Устройство:</span> ${data.device_id}</div>
         <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
         <div class="row"><span class="name">Статус:</span> ${formatStatus(data.status)}</div>
-        <div class="row"><span class="name">Setpoint:</span> ${data.setpoint}</div>
+        <div class="row"><span class="name">Установка давления:</span> ${data.setpoint}</div>
         <div class="row"><span class="name">Последнее сообщение:</span> ${formatDateTime(data.last_seen)}</div>
     `;
 }
