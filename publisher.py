@@ -9,8 +9,6 @@ MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 DEVICES = ["GL-001", "GL-002", "GL-003"]
 
-PUBLISH_INTERVAL_SECONDS = 3
-
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
@@ -18,8 +16,8 @@ client.loop_start()
 state = {
     device_id: {
         "setpoint": round(random.uniform(2.5, 4.5), 1),
-        "status": 0,
         "enabled": True,
+        "status": 0,
     }
     for device_id in DEVICES
 }
@@ -28,8 +26,6 @@ while True:
     for device_id in DEVICES:
         item = state[device_id]
 
-        # Иногда "теряем" устройство:
-        # просто перестаём слать сообщения, чтобы backend сам перевёл его в offline
         if random.random() < 0.05:
             item["enabled"] = not item["enabled"]
 
@@ -42,7 +38,7 @@ while True:
 
             payload = {
                 "setpoint": item["setpoint"],
-                "status": item["status"],
+                "status": str(item["status"]),
             }
 
             client.publish(
@@ -56,4 +52,4 @@ while True:
         else:
             print(f"Skipped publish for {device_id} (simulate offline)")
 
-        time.sleep(PUBLISH_INTERVAL_SECONDS)
+        time.sleep(3)
