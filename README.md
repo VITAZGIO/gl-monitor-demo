@@ -1,1 +1,205 @@
-Дистанционный мониторинг состояния GL через публикацию esp32
+# GL Monitor Demo
+
+Демо-проект панели мониторинга шкафов GL.
+
+Сейчас проект показывает, как может работать будущая система мониторинга:
+внешний источник данных отправляет телеметрию по MQTT, backend принимает её, хранит текущее состояние и историю, а frontend показывает карточку устройства и график давления.
+
+---
+
+## Как сейчас работает проект
+
+Архитектура проекта:
+
+test-publisher -> MQTT broker (Mosquitto) -> FastAPI backend -> frontend
+
+---
+
+## Логика работы
+
+1. test-publisher раз в несколько секунд отправляет тестовые данные по MQTT для устройств:
+   - GL-001
+   - GL-002
+   - GL-003
+
+2. Сообщения отправляются в MQTT topics вида:
+
+devices/GL-001/telemetry  
+devices/GL-002/telemetry  
+devices/GL-003/telemetry  
+
+3. FastAPI backend подписывается на topic:
+
+devices/+/telemetry
+
+и:
+- принимает сообщения
+- обновляет состояние устройства
+- сохраняет историю значений
+
+4. Frontend:
+- запрашивает данные через API
+- показывает карточку устройства
+- строит график давления
+
+---
+
+## Что показывает панель
+
+- ID устройства  
+- статус подключения  
+- ошибки / статус  
+- входное давление  
+- давление системы  
+- график давления  
+
+---
+
+## Структура проекта
+
+gl-monitor-demo/
+├── app/
+│   ├── main.py
+│   ├── mqtt_client.py
+│   ├── state.py
+│   ├── static/
+│   │   ├── app.js
+│   │   └── feature.js
+│   └── templates/
+│       └── index.html
+├── mosquitto/
+│   └── mosquitto.conf
+├── Dockerfile
+├── publisher.Dockerfile
+├── publisher.py
+├── docker-compose.yml
+├── requirements.txt
+└── README.md
+
+---
+
+## Файлы и их назначение
+
+### app/main.py
+- запуск FastAPI
+- API endpoints
+- подключение MQTT
+
+### app/mqtt_client.py
+- подключение к MQTT
+- подписка на topic
+- обработка сообщений
+
+### app/state.py
+- хранение устройств
+- хранение истории
+- обновление данных
+
+---
+
+### app/static/app.js
+- логика фронта
+- запрос данных
+- обновление UI
+- график
+
+### app/templates/index.html
+- HTML страницы
+- разметка панели
+
+### app/static/feature.js
+- скрытая фича (пасхалка)
+
+---
+
+### publisher.py
+- тестовый генератор данных
+- имитация устройств
+- отправка MQTT сообщений
+
+---
+
+### docker-compose.yml
+поднимает:
+- backend
+- mosquitto
+- publisher
+
+---
+
+### mosquitto/mosquitto.conf
+конфиг MQTT broker
+
+---
+
+### requirements.txt
+зависимости Python:
+- fastapi
+- uvicorn
+- jinja2
+- paho-mqtt
+
+---
+
+## MQTT payload
+
+Пример:
+
+{
+  "system_pressure": 3.8,
+  "status": 0,
+  "online": true,
+  "timestamp": "2026-04-20T10:04:06"
+}
+
+---
+
+## API
+
+GET /api/devices  
+GET /api/devices/{device_id}  
+GET /api/devices/{device_id}/history  
+
+---
+
+## Запуск
+
+docker compose up -d --build
+
+---
+
+## Что уже реализовано
+
+- панель мониторинга
+- список устройств
+- карточка устройства
+- график давления
+- MQTT broker
+- test publisher
+- backend subscriber
+- хранение истории в памяти
+
+---
+
+## Что пока не реализовано
+
+- реальная ESP32  
+- база данных  
+- авторизация  
+- команды на устройство  
+- сохранение истории после перезапуска  
+- тревоги и уведомления  
+
+---
+
+## Назначение проекта
+
+Проект является промежуточным этапом между демо и реальной системой.
+
+Сейчас проверяется архитектура:
+
+- источник данных отдельно  
+- backend отдельно  
+- frontend отдельно  
+
+Позже test-publisher будет заменён на реальную ESP32.

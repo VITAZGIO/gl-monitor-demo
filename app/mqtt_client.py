@@ -51,7 +51,6 @@ def on_message(client, userdata, msg):
         parts = msg.topic.split("/")
         device_id = parts[1]
         apply_telemetry(device_id, payload)
-        print(f"MQTT received: {msg.topic} -> {payload}")
     except Exception as e:
         print(f"MQTT message error: {e}")
 
