@@ -1,11 +1,14 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 HISTORY_LIMIT = 40
 OFFLINE_TIMEOUT_SECONDS = 10
 
 
 def now_iso() -> str:
-    return datetime.now().isoformat(timespec="seconds")
+    return datetime.now(MOSCOW_TZ).isoformat(timespec="seconds")
 
 
 def make_history_point(value: float, timestamp: str | None = None) -> dict:

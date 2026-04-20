@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
 
@@ -9,6 +10,8 @@ from app.state import DEVICES, OFFLINE_TIMEOUT_SECONDS, add_history_point, ensur
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 MQTT_TOPIC = os.getenv("MQTT_TOPIC", "devices/+/telemetry")
+
+MOSCOW_TZ = ZoneInfo("Europe/Moscow")
 
 mqtt_client = None
 
@@ -24,7 +27,7 @@ def parse_iso_datetime(value: str | None) -> datetime | None:
 
 
 def refresh_devices_online_status() -> None:
-    now = datetime.now()
+    now = datetime.now(MOSCOW_TZ)
 
     for device in DEVICES.values():
         last_seen_str = device.get("last_seen")
@@ -43,7 +46,7 @@ def apply_telemetry(device_id: str, payload: dict) -> None:
 
     setpoint = round(float(payload.get("setpoint", 0.0)), 1)
     status = int(payload.get("status", 0))
-    timestamp = datetime.now().isoformat(timespec="seconds")
+    timestamp = datetime.now(MOSCOW_TZ).isoformat(timespec="seconds")
 
     device["status"] = status
     device["setpoint"] = setpoint
