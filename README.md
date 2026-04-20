@@ -76,6 +76,7 @@ gl-monitor-demo/
 ├── requirements.txt
 └── README.md
 
+
 ---
 
 ## Файлы и их назначение
