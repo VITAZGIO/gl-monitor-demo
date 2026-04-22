@@ -99,6 +99,54 @@ function renderEmpty(message = "Выберите устройство") {
     deviceData.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
 }
 
+function renderError(message = "Ошибка связи с backend") {
+    deviceData.innerHTML = `<div class="error-box">${escapeHtml(message)}</div>`;
+}
+
+function renderDeviceCard(data) {
+    const rawTopic = escapeHtml(data.raw_topic || "—");
+    const rawPayload = escapeHtml(data.raw_payload || "—");
+    const setpoint = escapeHtml(data.setpoint || "—");
+    const statusText = escapeHtml(data.status_text || "Неизвестно");
+    const deviceId = escapeHtml(data.device_id || "—");
+    const connectedText = data.connected ? "Да" : "Нет";
+    const connectedClass = data.connected ? "ok" : "bad";
+
+    deviceData.innerHTML = `
+        <div class="device-card">
+            <h2>${deviceId}</h2>
+
+            <div class="kv-grid">
+                <div class="kv-item">
+                    <div class="kv-label">Подключено</div>
+                    <div class="kv-value ${connectedClass}">${connectedText}</div>
+                </div>
+
+                <div class="kv-item">
+                    <div class="kv-label">Статус</div>
+                    <div class="kv-value">${statusText}</div>
+                </div>
+
+                <div class="kv-item">
+                    <div class="kv-label">Уставка</div>
+                    <div class="kv-value">${setpoint}</div>
+                </div>
+
+                <div class="kv-item">
+                    <div class="kv-label">Последнее сообщение</div>
+                    <div class="kv-value">${escapeHtml(formatDateTime(data.last_seen))}</div>
+                </div>
+            </div>
+
+            <div class="debug-box">
+                <div class="debug-title">Последнее MQTT-сообщение</div>
+                <div class="debug-topic">${rawTopic}</div>
+                <pre class="debug-payload">${rawPayload}</pre>
+            </div>
+        </div>
+    `;
+}
+
 async function loadDevices() {
     const previousValue = deviceSelect.value;
 
@@ -126,24 +174,28 @@ async function loadDevices() {
         if (previousValue && devices.includes(previousValue)) {
             deviceSelect.value = previousValue;
             selectedDeviceId = previousValue;
-        } else if (selectedDeviceId && devices.includes(selectedDeviceId)) {
+            return;
+        }
+
+        if (selectedDeviceId && devices.includes(selectedDeviceId)) {
             deviceSelect.value = selectedDeviceId;
-        } else {
-            if (selectedDeviceId && !devices.includes(selectedDeviceId)) {
-                selectedDeviceId = "";
-                stopAuto();
-                renderEmpty("Устройство недоступно");
-                clearChart();
-                hideChart();
-            }
+            return;
+        }
+
+        if (selectedDeviceId && !devices.includes(selectedDeviceId)) {
+            selectedDeviceId = "";
             deviceSelect.value = "";
+            renderEmpty("Устройство недоступно");
+            clearChart();
+            hideChart();
         }
     } catch (error) {
         console.error(error);
+
         deviceSelect.innerHTML = '<option value="">-- Ошибка загрузки --</option>';
 
         if (!selectedDeviceId) {
-            renderEmpty("Ошибка связи с backend");
+            renderError("Ошибка связи с backend");
             clearChart();
             hideChart();
         }
@@ -162,32 +214,15 @@ async function loadDevice(deviceId) {
         });
 
         if (!res.ok) {
-            deviceData.innerHTML = `<div class="empty">Не удалось загрузить данные устройства</div>`;
+            renderError("Не удалось загрузить данные устройства");
             return;
         }
 
         const data = await res.json();
-
-        const rawTopic = escapeHtml(data.raw_topic || "—");
-        const rawPayload = escapeHtml(data.raw_payload || "—");
-
-        deviceData.innerHTML = `
-            <div class="row"><span class="name">Устройство:</span> ${escapeHtml(data.device_id || "—")}</div>
-            <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
-            <div class="row"><span class="name">Статус:</span> ${escapeHtml(data.status_text || "Неизвестно")}</div>
-            <div class="row"><span class="name">Уставка давления:</span> ${escapeHtml(data.setpoint || "—")}</div>
-            <div class="row"><span class="name">Последнее сообщение:</span> ${formatDateTime(data.last_seen)}</div>
-
-            <div class="debug-box">
-                <div class="debug-title">Debug</div>
-                <div class="row"><span class="name">Topic:</span> ${rawTopic}</div>
-                <div class="row"><span class="name">Raw payload:</span></div>
-                <pre class="debug-pre">${rawPayload}</pre>
-            </div>
-        `;
+        renderDeviceCard(data);
     } catch (error) {
         console.error(error);
-        deviceData.innerHTML = `<div class="empty">Ошибка связи с backend</div>`;
+        renderError("Ошибка связи с backend");
     }
 }
 
@@ -230,10 +265,15 @@ async function loadDeviceHistory(deviceId) {
     }
 }
 
-async function refreshSelectedDevice() {
+async function refreshAll() {
     await loadDevices();
 
-    if (!selectedDeviceId) return;
+    if (!selectedDeviceId) {
+        renderEmpty("Выберите устройство");
+        clearChart();
+        hideChart();
+        return;
+    }
 
     await loadDevice(selectedDeviceId);
     await loadDeviceHistory(selectedDeviceId);
@@ -242,7 +282,7 @@ async function refreshSelectedDevice() {
 function startAuto() {
     stopAuto();
     interval = setInterval(() => {
-        refreshSelectedDevice();
+        refreshAll();
     }, 3000);
 }
 
@@ -257,18 +297,17 @@ deviceSelect.addEventListener("change", async (e) => {
     selectedDeviceId = e.target.value;
 
     if (!selectedDeviceId) {
-        stopAuto();
         renderEmpty("Выберите устройство");
         clearChart();
         hideChart();
         return;
     }
 
-    await refreshSelectedDevice();
-    startAuto();
+    await refreshAll();
 });
 
 createChart();
 hideChart();
 renderEmpty("Выберите устройство");
-loadDevices();
+refreshAll();
+startAuto();
