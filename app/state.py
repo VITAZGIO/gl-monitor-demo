@@ -1,14 +1,16 @@
+import os
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+APP_TIMEZONE = os.getenv("APP_TIMEZONE", "UTC")
+APP_TZ = ZoneInfo(APP_TIMEZONE)
 
 HISTORY_LIMIT = 40
 OFFLINE_TIMEOUT_SECONDS = 10
 
 
 def now_iso() -> str:
-    return datetime.now(MOSCOW_TZ).isoformat(timespec="seconds")
+    return datetime.now(APP_TZ).isoformat(timespec="seconds")
 
 
 def make_history_point(value: float, timestamp: str | None = None) -> dict:
@@ -44,3 +46,4 @@ def add_history_point(device: dict, value: float, timestamp: str | None = None) 
     device["history"].append(make_history_point(value, timestamp))
     if len(device["history"]) > HISTORY_LIMIT:
         device["history"] = device["history"][-HISTORY_LIMIT:]
+

@@ -7,49 +7,58 @@ import paho.mqtt.client as mqtt
 
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
-DEVICES = ["GL-001", "GL-002", "GL-003"]
+DEVICE_ID = os.getenv("DEVICE_ID", "ESP32-DEMO-001")
+PUBLISH_INTERVAL = float(os.getenv("PUBLISH_INTERVAL", "3"))
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
-state = {
-    device_id: {
-        "setpoint": round(random.uniform(2.5, 4.5), 1),
-        "enabled": True,
-        "status": 0,
-    }
-    for device_id in DEVICES
-}
+setpoint = round(random.uniform(4.5, 6.0), 1)
+online = True
 
-while True:
-    for device_id in DEVICES:
-        item = state[device_id]
+try:
+    while True:
+        if random.random() < 0.08:
+            online = not online
 
-        if random.random() < 0.05:
-            item["enabled"] = not item["enabled"]
-
-        if item["enabled"]:
-            item["setpoint"] = round(
-                min(5.5, max(0.8, item["setpoint"] + random.uniform(-0.3, 0.3))),
+        if online:
+            setpoint = round(
+                min(6.5, max(3.0, setpoint + random.uniform(-0.3, 0.3))),
                 1,
             )
-            item["status"] = 0 if random.random() < 0.9 else 1
+
+            roll = random.random()
+            if roll < 0.75:
+                status = 0
+            elif roll < 0.92:
+                status = 1
+            else:
+                status = 2
 
             payload = {
-                "setpoint": item["setpoint"],
-                "status": str(item["status"]),
+                "setpoint": setpoint,
+                "status": str(status),
             }
 
+            topic = f"devices/{DEVICE_ID}/telemetry"
+
             client.publish(
-                f"devices/{device_id}/telemetry",
+                topic,
                 json.dumps(payload),
                 qos=0,
                 retain=False,
             )
 
-            print(f"Published: devices/{device_id}/telemetry -> {payload}")
+            print(f"Published: {topic} -> {payload}")
         else:
-            print(f"Skipped publish for {device_id} (simulate offline)")
+            print(f"Skipped publish for {DEVICE_ID} (simulate offline)")
 
-        time.sleep(3)
+        time.sleep(PUBLISH_INTERVAL)
+
+except KeyboardInterrupt:
+    print("Publisher stopped")
+
+finally:
+    client.loop_stop()
+    client.disconnect()

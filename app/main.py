@@ -24,6 +24,12 @@ def status_to_text(status: int | None) -> str:
     return "Неизвестно"
 
 
+def format_setpoint(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value:.1f} бар"
+
+
 @app.on_event("startup")
 async def startup_event():
     start_mqtt()
@@ -56,16 +62,12 @@ async def get_device_data(device_id: str):
         raise HTTPException(status_code=404, detail="Устройство не найдено")
 
     return {
-        "device_id": device["device_id"],
+        "device_id": device.get("device_id") or device_id,
         "connected": bool(device.get("connected", False)),
         "status": device.get("status"),
         "status_text": status_to_text(device.get("status")),
-        "setpoint": (
-            f'{device["setpoint"]:.1f} бар'
-            if device.get("setpoint") is not None
-            else "—"
-        ),
-        "last_seen": device.get("last_seen"),
+        "setpoint": format_setpoint(device.get("setpoint")),
+        "last_seen": device.get("last_seen") or "—",
         "raw_topic": device.get("raw_topic") or "—",
         "raw_payload": device.get("raw_payload") or "—",
     }

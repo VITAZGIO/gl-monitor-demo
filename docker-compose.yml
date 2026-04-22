@@ -8,6 +8,8 @@ services:
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
       MQTT_TOPIC: devices/+/telemetry
+      APP_TIMEZONE: Europe/Berlin
+      LOG_LEVEL: INFO
     depends_on:
       - mosquitto
     restart: unless-stopped
@@ -27,6 +29,10 @@ services:
     environment:
       MQTT_HOST: mosquitto
       MQTT_PORT: 1883
+      DEVICE_ID: ESP32-DEMO-001
+      PUBLISH_INTERVAL: 3
     depends_on:
       - mosquitto
     restart: unless-stopped
+    profiles:
+      - demo-publisher

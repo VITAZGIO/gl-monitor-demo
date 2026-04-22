@@ -1,152 +1,210 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GL Monitor Demo</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+
     <style>
-        body {
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #111827;
-            color: #f3f4f6;
-            padding: 40px;
-        }
+      :root {
+        color-scheme: dark;
+        --bg: #101418;
+        --card: #182028;
+        --card-2: #1f2933;
+        --text: #e8edf2;
+        --muted: #9fb0c0;
+        --line: rgba(255, 255, 255, 0.08);
+        --ok: #53d769;
+        --bad: #ff6b6b;
+      }
 
-        .container {
-            max-width: 1000px;
-            margin: 0 auto;
-            background: #1f2937;
-            padding: 24px;
-            border-radius: 16px;
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
-            border: 1px solid #374151;
-        }
+      * {
+        box-sizing: border-box;
+      }
 
-        h1 {
-            margin-top: 0;
-            margin-bottom: 24px;
-            color: #f9fafb;
-            font-size: 28px;
-        }
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
 
-        label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: bold;
-            color: #d1d5db;
-        }
+      .page {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 16px 40px;
+      }
 
-        select {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            background: #374151;
-            color: #f9fafb;
-            border: 1px solid #4b5563;
-            border-radius: 10px;
-        }
+      h1 {
+        margin: 0 0 20px;
+        font-size: 28px;
+      }
 
-        .card {
-            margin-top: 24px;
-            padding: 20px;
-            background: #111827;
-            border: 1px solid #374151;
-            border-radius: 12px;
-        }
+      h2 {
+        margin: 0 0 16px;
+        font-size: 22px;
+      }
 
-        .row {
-            margin-bottom: 12px;
-            font-size: 18px;
-        }
+      .layout {
+        display: grid;
+        gap: 16px;
+      }
 
-        .name {
-            font-weight: bold;
-            color: #f3f4f6;
-        }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 16px;
+      }
 
-        .empty {
-            color: #9ca3af;
-        }
+      label {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
 
-        .chart-title {
-            margin-top: 0;
-            margin-bottom: 16px;
-            font-size: 20px;
-            color: #f9fafb;
-        }
+      select {
+        width: 100%;
+        padding: 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: var(--card-2);
+        color: var(--text);
+        font-size: 15px;
+      }
 
-        .chart-wrap {
-            position: relative;
-            height: 320px;
-        }
+      .device-card h2 {
+        margin-bottom: 18px;
+      }
 
-        .debug-box {
-            margin-top: 20px;
-            padding: 16px;
-            background: #0b1220;
-            border: 1px solid #334155;
-            border-radius: 10px;
-        }
+      .kv-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+        margin-bottom: 18px;
+      }
 
-        .debug-title {
-            font-weight: bold;
-            margin-bottom: 12px;
-            color: #93c5fd;
-        }
+      .kv-item {
+        background: var(--card-2);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+      }
 
-        .debug-pre {
-            margin: 0;
-            padding: 12px;
-            white-space: pre-wrap;
-            word-break: break-word;
-            background: #020617;
-            color: #cbd5e1;
-            border-radius: 8px;
-            border: 1px solid #1e293b;
-            font-size: 14px;
-        }
+      .kv-label {
+        color: var(--muted);
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
 
-        #secret-btn {
-            position: fixed;
-            bottom: 5px;
-            right: 5px;
-            width: 20px;
-            height: 20px;
-            opacity: 0.1;
-            cursor: pointer;
-            z-index: 9999;
-        }
+      .kv-value {
+        font-size: 18px;
+        font-weight: 700;
+      }
+
+      .ok {
+        color: var(--ok);
+      }
+
+      .bad {
+        color: var(--bad);
+      }
+
+      .debug-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px;
+        background: #111820;
+      }
+
+      .debug-title {
+        font-size: 14px;
+        color: var(--muted);
+        margin-bottom: 8px;
+      }
+
+      .debug-topic {
+        margin-bottom: 10px;
+        word-break: break-word;
+      }
+
+      .debug-payload {
+        margin: 0;
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-family: monospace;
+        font-size: 13px;
+      }
+
+      .placeholder,
+      .error-box {
+        padding: 18px;
+        border-radius: 12px;
+        background: var(--card-2);
+      }
+
+      .error-box {
+        border: 1px solid rgba(255, 107, 107, 0.35);
+      }
+
+      #chartCard {
+        display: none;
+      }
+
+      .chart-wrap {
+        height: 340px;
+      }
+      #secret-btn {
+        position: fixed;
+        bottom: 5px;
+        right: 5px;
+        width: 20px;
+        height: 20px;
+        opacity: 0.1;
+        cursor: pointer;
+        z-index: 9999;
+      }
     </style>
-</head>
 
-<body>
-    <div class="container">
-        <h1>Панель мониторинга шкафов GL</h1>
+  </head>
 
-        <label for="deviceSelect">Выбрать устройство</label>
-        <select id="deviceSelect">
+  <body>
+    <main class="page">
+      <h1>Панель мониторинга шкафов GL</h1>
+
+      <div class="layout">
+        <section class="card">
+          <label for="deviceSelect">Выбрать устройство</label>
+          <select id="deviceSelect">
             <option value="">Загрузка...</option>
-        </select>
+          </select>
+        </section>
 
-        <div class="card" id="deviceData">
-            <div class="empty">Выберите устройство</div>
-        </div>
+        <section class="card" id="deviceData">
+          Загрузка...
+        </section>
 
-        <div class="card" id="chartCard" style="display: none;">
-            <h2 class="chart-title">График уставки давления</h2>
-            <div class="chart-wrap">
-                <canvas id="pressureChart"></canvas>
-            </div>
-        </div>
-    </div>
+        <section class="card" id="chartCard">
+          <h2>График уставки давления</h2>
+          <div class="chart-wrap">
+            <canvas id="pressureChart"></canvas>
+          </div>
+        </section>
+      </div>
+    </main>
 
-    <div id="feature-container"></div>
-    <div id="secret-btn" onclick="toggleFeature()"></div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/app.js"></script>
-    <script src="/static/feature.js"></script>
-</body>
+  </body>
 </html>
+
+
+
+
+
+
+
+
+
