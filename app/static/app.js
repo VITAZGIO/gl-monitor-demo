@@ -2,346 +2,273 @@ const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
 const chartCanvas = document.getElementById("pressureChart");
 const chartCard = document.getElementById("chartCard");
-const secretBtn = document.getElementById("secret-btn");
-
-const NORMAL_POLL_INTERVAL_MS = 3000;
-const TURBO_POLL_INTERVAL_MS = 1000;
 
 let selectedDeviceId = "";
-let pollTimer = null;
+let interval = null;
 let pressureChart = null;
-let secretFeatureEnabled =
-  localStorage.getItem("secretFeatureEnabled") === "1";
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function formatTime(isoString) {
-  if (!isoString || isoString === "—") return "—";
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleTimeString("ru-RU");
-}
-
-function formatDateTime(isoString) {
-  if (!isoString || isoString === "—") return "—";
-  const date = new Date(isoString);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("ru-RU");
-}
 
 function createChart() {
-  pressureChart = new Chart(chartCanvas, {
-    type: "line",
-    data: {
-      labels: [],
-      datasets: [
-        {
-          label: "Уставка давления, бар",
-          data: [],
-          borderColor: "#4bc0c0",
-          backgroundColor: "rgba(75, 192, 192, 0.15)",
-          tension: 0.25,
-          fill: true,
+    pressureChart = new Chart(chartCanvas, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Уставка давления, бар",
+                    data: [],
+                    borderColor: "#4bc0c0",
+                    backgroundColor: "rgba(75, 192, 192, 0.15)",
+                    tension: 0.25,
+                    fill: true,
+                },
+            ],
         },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: false,
-      plugins: {
-        legend: {
-          labels: {
-            color: "#e6e6e6",
-          },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "#e6e6e6",
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255, 255, 255, 0.08)",
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255, 255, 255, 0.08)",
+                    },
+                },
+            },
         },
-      },
-      scales: {
-        x: {
-          ticks: { color: "#cccccc" },
-          grid: { color: "rgba(255, 255, 255, 0.08)" },
-        },
-        y: {
-          beginAtZero: true,
-          ticks: { color: "#cccccc" },
-          grid: { color: "rgba(255, 255, 255, 0.08)" },
-        },
-      },
-    },
-  });
+    });
 }
 
 function clearChart() {
-  if (!pressureChart) return;
-  pressureChart.data.labels = [];
-  pressureChart.data.datasets[0].data = [];
-  pressureChart.update();
-}
-
-function hideChart() {
-  if (chartCard) chartCard.style.display = "none";
+    if (!pressureChart) return;
+    pressureChart.data.labels = [];
+    pressureChart.data.datasets[0].data = [];
+    pressureChart.update();
 }
 
 function showChart() {
-  if (chartCard) chartCard.style.display = "block";
+    chartCard.style.display = "block";
 }
 
-function renderPlaceholder(message) {
-  deviceData.innerHTML = `<div class="placeholder">${escapeHtml(message)}</div>`;
+function hideChart() {
+    chartCard.style.display = "none";
 }
 
-function renderError(message) {
-  deviceData.innerHTML = `<div class="error-box">${escapeHtml(message)}</div>`;
+function formatTime(isoString) {
+    if (!isoString || isoString === "—") return "—";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleTimeString("ru-RU");
 }
 
-function renderDeviceCard(data) {
-  const rawTopic = escapeHtml(data.raw_topic || "—");
-  const rawPayload = escapeHtml(data.raw_payload || "—");
-  const setpoint = escapeHtml(data.setpoint || "—");
-  const statusText = escapeHtml(data.status_text || "Неизвестно");
-  const deviceId = escapeHtml(data.device_id || "—");
-  const connectedText = data.connected ? "Да" : "Нет";
-  const connectedClass = data.connected ? "ok" : "bad";
+function formatDateTime(isoString) {
+    if (!isoString || isoString === "—") return "Нет данных";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "Нет данных";
+    return date.toLocaleString("ru-RU");
+}
 
-  deviceData.innerHTML = `
-    <div class="device-card">
-      <h2>${deviceId}</h2>
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
 
-      <div class="kv-grid">
-        <div class="kv-item">
-          <div class="kv-label">Подключено</div>
-          <div class="kv-value ${connectedClass}">${connectedText}</div>
-        </div>
-
-        <div class="kv-item">
-          <div class="kv-label">Статус</div>
-          <div class="kv-value">${statusText}</div>
-        </div>
-
-        <div class="kv-item">
-          <div class="kv-label">Уставка</div>
-          <div class="kv-value">${setpoint}</div>
-        </div>
-
-        <div class="kv-item">
-          <div class="kv-label">Последнее сообщение</div>
-          <div class="kv-value">${escapeHtml(formatDateTime(data.last_seen))}</div>
-        </div>
-      </div>
-
-      <div class="debug-box">
-        <div class="debug-title">Последнее MQTT-сообщение</div>
-        <div class="debug-topic">${rawTopic}</div>
-        <pre class="debug-payload">${rawPayload}</pre>
-      </div>
-    </div>
-  `;
+function renderEmpty(message = "Выберите устройство") {
+    deviceData.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
 }
 
 async function loadDevices() {
-  const res = await fetch(`/api/devices?t=${Date.now()}`, {
-    cache: "no-store",
-  });
+    const previousValue = deviceSelect.value;
 
-  if (!res.ok) {
-    throw new Error("Не удалось загрузить список устройств");
-  }
+    try {
+        const res = await fetch("/api/devices?t=" + Date.now(), {
+            cache: "no-store",
+        });
 
-  const data = await res.json();
-  const devices = Array.isArray(data.devices) ? data.devices : [];
-  const oldSelected = selectedDeviceId;
+        if (!res.ok) {
+            throw new Error("Не удалось загрузить список устройств");
+        }
 
-  deviceSelect.innerHTML = "";
+        const data = await res.json();
+        const devices = Array.isArray(data.devices) ? data.devices : [];
 
-  const placeholder = document.createElement("option");
-  placeholder.value = "";
-  placeholder.textContent = devices.length
-    ? "-- Выберите устройство --"
-    : "-- Устройств нет --";
-  deviceSelect.appendChild(placeholder);
+        deviceSelect.innerHTML = '<option value="">-- Выберите устройство --</option>';
 
-  devices.forEach((deviceId) => {
-    const option = document.createElement("option");
-    option.value = deviceId;
-    option.textContent = deviceId;
-    deviceSelect.appendChild(option);
-  });
+        devices.forEach((d) => {
+            const opt = document.createElement("option");
+            opt.value = d;
+            opt.textContent = d;
+            deviceSelect.appendChild(opt);
+        });
 
-  if (oldSelected && devices.includes(oldSelected)) {
-    selectedDeviceId = oldSelected;
-    deviceSelect.value = oldSelected;
-    return;
-  }
+        if (previousValue && devices.includes(previousValue)) {
+            deviceSelect.value = previousValue;
+            selectedDeviceId = previousValue;
+        } else if (selectedDeviceId && devices.includes(selectedDeviceId)) {
+            deviceSelect.value = selectedDeviceId;
+        } else {
+            if (selectedDeviceId && !devices.includes(selectedDeviceId)) {
+                selectedDeviceId = "";
+                stopAuto();
+                renderEmpty("Устройство недоступно");
+                clearChart();
+                hideChart();
+            }
+            deviceSelect.value = "";
+        }
+    } catch (error) {
+        console.error(error);
+        deviceSelect.innerHTML = '<option value="">-- Ошибка загрузки --</option>';
 
-  if (!oldSelected && devices.length > 0) {
-    selectedDeviceId = devices[0];
-    deviceSelect.value = devices[0];
-    return;
-  }
-
-  selectedDeviceId = "";
-  deviceSelect.value = "";
+        if (!selectedDeviceId) {
+            renderEmpty("Ошибка связи с backend");
+            clearChart();
+            hideChart();
+        }
+    }
 }
 
 async function loadDevice(deviceId) {
-  if (!deviceId) {
-    renderPlaceholder("Ожидание устройства...");
-    return;
-  }
+    if (!deviceId) {
+        renderEmpty("Выберите устройство");
+        return;
+    }
 
-  const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}?t=${Date.now()}`, {
-    cache: "no-store",
-  });
+    try {
+        const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}?t=${Date.now()}`, {
+            cache: "no-store",
+        });
 
-  if (!res.ok) {
-    renderError("Не удалось загрузить данные устройства");
-    return;
-  }
+        if (!res.ok) {
+            deviceData.innerHTML = `<div class="empty">Не удалось загрузить данные устройства</div>`;
+            return;
+        }
 
-  const data = await res.json();
-  renderDeviceCard(data);
+        const data = await res.json();
+
+        const rawTopic = escapeHtml(data.raw_topic || "—");
+        const rawPayload = escapeHtml(data.raw_payload || "—");
+
+        deviceData.innerHTML = `
+            <div class="row"><span class="name">Устройство:</span> ${escapeHtml(data.device_id || "—")}</div>
+            <div class="row"><span class="name">Подключено:</span> ${data.connected ? "Да" : "Нет"}</div>
+            <div class="row"><span class="name">Статус:</span> ${escapeHtml(data.status_text || "Неизвестно")}</div>
+            <div class="row"><span class="name">Уставка давления:</span> ${escapeHtml(data.setpoint || "—")}</div>
+            <div class="row"><span class="name">Последнее сообщение:</span> ${formatDateTime(data.last_seen)}</div>
+
+            <div class="debug-box">
+                <div class="debug-title">Debug</div>
+                <div class="row"><span class="name">Topic:</span> ${rawTopic}</div>
+                <div class="row"><span class="name">Raw payload:</span></div>
+                <pre class="debug-pre">${rawPayload}</pre>
+            </div>
+        `;
+    } catch (error) {
+        console.error(error);
+        deviceData.innerHTML = `<div class="empty">Ошибка связи с backend</div>`;
+    }
 }
 
 async function loadDeviceHistory(deviceId) {
-  if (!deviceId) {
-    clearChart();
-    hideChart();
-    return;
-  }
-
-  const res = await fetch(
-    `/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`,
-    {
-      cache: "no-store",
+    if (!deviceId) {
+        clearChart();
+        hideChart();
+        return;
     }
-  );
 
-  if (!res.ok) {
-    clearChart();
-    hideChart();
-    return;
-  }
+    try {
+        const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`, {
+            cache: "no-store",
+        });
 
-  const history = await res.json();
-  const points = Array.isArray(history) ? history : [];
+        if (!res.ok) {
+            clearChart();
+            hideChart();
+            return;
+        }
 
-  if (!points.length) {
-    clearChart();
-    hideChart();
-    return;
-  }
+        const history = await res.json();
+        const points = Array.isArray(history) ? history : [];
 
-  pressureChart.data.labels = points.map((point) => formatTime(point.timestamp));
-  pressureChart.data.datasets[0].data = points.map((point) => point.value);
-  pressureChart.update();
-  showChart();
+        if (!points.length) {
+            clearChart();
+            hideChart();
+            return;
+        }
+
+        pressureChart.data.labels = points.map((point) => formatTime(point.timestamp));
+        pressureChart.data.datasets[0].data = points.map((point) => point.value);
+        pressureChart.update();
+
+        showChart();
+    } catch (error) {
+        console.error(error);
+        clearChart();
+        hideChart();
+    }
 }
 
-async function refreshAll() {
-  try {
+async function refreshSelectedDevice() {
     await loadDevices();
 
-    if (!selectedDeviceId) {
-      renderPlaceholder("Ожидание устройства...");
-      clearChart();
-      hideChart();
-      return;
-    }
+    if (!selectedDeviceId) return;
 
     await loadDevice(selectedDeviceId);
     await loadDeviceHistory(selectedDeviceId);
-  } catch (error) {
-    console.error(error);
-    renderError("Ошибка связи с backend");
-    clearChart();
-    hideChart();
-  }
 }
 
-function getPollInterval() {
-  return secretFeatureEnabled
-    ? TURBO_POLL_INTERVAL_MS
-    : NORMAL_POLL_INTERVAL_MS;
+function startAuto() {
+    stopAuto();
+    interval = setInterval(() => {
+        refreshSelectedDevice();
+    }, 3000);
 }
 
-function startPolling() {
-  stopPolling();
-  pollTimer = setInterval(refreshAll, getPollInterval());
+function stopAuto() {
+    if (interval) {
+        clearInterval(interval);
+        interval = null;
+    }
 }
 
-function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer);
-    pollTimer = null;
-  }
-}
+deviceSelect.addEventListener("change", async (e) => {
+    selectedDeviceId = e.target.value;
 
-function applySecretFeatureState() {
-  if (!secretBtn) return;
+    if (!selectedDeviceId) {
+        stopAuto();
+        renderEmpty("Выберите устройство");
+        clearChart();
+        hideChart();
+        return;
+    }
 
-  if (secretFeatureEnabled) {
-    secretBtn.style.opacity = "0.35";
-    secretBtn.title = "Turbo demo mode: ON";
-    secretBtn.dataset.enabled = "1";
-  } else {
-    secretBtn.style.opacity = "0.1";
-    secretBtn.title = "Turbo demo mode: OFF";
-    secretBtn.dataset.enabled = "0";
-  }
-}
-
-function showSecretToast(text) {
-  const toast = document.createElement("div");
-  toast.textContent = text;
-  toast.style.position = "fixed";
-  toast.style.right = "16px";
-  toast.style.bottom = "36px";
-  toast.style.padding = "10px 14px";
-  toast.style.borderRadius = "10px";
-  toast.style.background = "rgba(20, 20, 20, 0.92)";
-  toast.style.color = "#fff";
-  toast.style.fontSize = "13px";
-  toast.style.zIndex = "10000";
-  toast.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
-  document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.remove();
-  }, 1300);
-}
-
-function toggleFeature() {
-  secretFeatureEnabled = !secretFeatureEnabled;
-  localStorage.setItem("secretFeatureEnabled", secretFeatureEnabled ? "1" : "0");
-
-  applySecretFeatureState();
-  startPolling();
-  refreshAll();
-
-  showSecretToast(
-    secretFeatureEnabled
-      ? "Turbo demo mode ON"
-      : "Turbo demo mode OFF"
-  );
-}
-
-window.toggleFeature = toggleFeature;
-
-deviceSelect.addEventListener("change", async (event) => {
-  selectedDeviceId = event.target.value;
-  await refreshAll();
+    await refreshSelectedDevice();
+    startAuto();
 });
 
 createChart();
 hideChart();
-applySecretFeatureState();
-renderPlaceholder("Загрузка...");
-refreshAll();
-startPolling();
+renderEmpty("Выберите устройство");
+loadDevices();
