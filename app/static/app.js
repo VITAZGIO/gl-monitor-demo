@@ -2,12 +2,16 @@ const deviceSelect = document.getElementById("deviceSelect");
 const deviceData = document.getElementById("deviceData");
 const chartCanvas = document.getElementById("pressureChart");
 const chartCard = document.getElementById("chartCard");
+const secretBtn = document.getElementById("secret-btn");
 
-const POLL_INTERVAL_MS = 3000;
+const NORMAL_POLL_INTERVAL_MS = 3000;
+const TURBO_POLL_INTERVAL_MS = 1000;
 
 let selectedDeviceId = "";
 let pollTimer = null;
 let pressureChart = null;
+let secretFeatureEnabled =
+  localStorage.getItem("secretFeatureEnabled") === "1";
 
 function escapeHtml(value) {
   return String(value)
@@ -82,11 +86,11 @@ function clearChart() {
 }
 
 function hideChart() {
-  chartCard.style.display = "none";
+  if (chartCard) chartCard.style.display = "none";
 }
 
 function showChart() {
-  chartCard.style.display = "block";
+  if (chartCard) chartCard.style.display = "block";
 }
 
 function renderPlaceholder(message) {
@@ -142,7 +146,10 @@ function renderDeviceCard(data) {
 }
 
 async function loadDevices() {
-  const res = await fetch(`/api/devices?t=${Date.now()}`, { cache: "no-store" });
+  const res = await fetch(`/api/devices?t=${Date.now()}`, {
+    cache: "no-store",
+  });
+
   if (!res.ok) {
     throw new Error("Не удалось загрузить список устройств");
   }
@@ -209,9 +216,12 @@ async function loadDeviceHistory(deviceId) {
     return;
   }
 
-  const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`, {
-    cache: "no-store",
-  });
+  const res = await fetch(
+    `/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`,
+    {
+      cache: "no-store",
+    }
+  );
 
   if (!res.ok) {
     clearChart();
@@ -255,9 +265,15 @@ async function refreshAll() {
   }
 }
 
+function getPollInterval() {
+  return secretFeatureEnabled
+    ? TURBO_POLL_INTERVAL_MS
+    : NORMAL_POLL_INTERVAL_MS;
+}
+
 function startPolling() {
   stopPolling();
-  pollTimer = setInterval(refreshAll, POLL_INTERVAL_MS);
+  pollTimer = setInterval(refreshAll, getPollInterval());
 }
 
 function stopPolling() {
@@ -267,6 +283,57 @@ function stopPolling() {
   }
 }
 
+function applySecretFeatureState() {
+  if (!secretBtn) return;
+
+  if (secretFeatureEnabled) {
+    secretBtn.style.opacity = "0.35";
+    secretBtn.title = "Turbo demo mode: ON";
+    secretBtn.dataset.enabled = "1";
+  } else {
+    secretBtn.style.opacity = "0.1";
+    secretBtn.title = "Turbo demo mode: OFF";
+    secretBtn.dataset.enabled = "0";
+  }
+}
+
+function showSecretToast(text) {
+  const toast = document.createElement("div");
+  toast.textContent = text;
+  toast.style.position = "fixed";
+  toast.style.right = "16px";
+  toast.style.bottom = "36px";
+  toast.style.padding = "10px 14px";
+  toast.style.borderRadius = "10px";
+  toast.style.background = "rgba(20, 20, 20, 0.92)";
+  toast.style.color = "#fff";
+  toast.style.fontSize = "13px";
+  toast.style.zIndex = "10000";
+  toast.style.boxShadow = "0 8px 24px rgba(0,0,0,0.35)";
+  document.body.appendChild(toast);
+
+  setTimeout(() => {
+    toast.remove();
+  }, 1300);
+}
+
+function toggleFeature() {
+  secretFeatureEnabled = !secretFeatureEnabled;
+  localStorage.setItem("secretFeatureEnabled", secretFeatureEnabled ? "1" : "0");
+
+  applySecretFeatureState();
+  startPolling();
+  refreshAll();
+
+  showSecretToast(
+    secretFeatureEnabled
+      ? "Turbo demo mode ON"
+      : "Turbo demo mode OFF"
+  );
+}
+
+window.toggleFeature = toggleFeature;
+
 deviceSelect.addEventListener("change", async (event) => {
   selectedDeviceId = event.target.value;
   await refreshAll();
@@ -274,6 +341,7 @@ deviceSelect.addEventListener("change", async (event) => {
 
 createChart();
 hideChart();
+applySecretFeatureState();
 renderPlaceholder("Загрузка...");
 refreshAll();
 startPolling();
