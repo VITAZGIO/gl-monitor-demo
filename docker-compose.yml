@@ -1,3 +1,4 @@
+
 services:
   company-server:
     build: ./company-server
@@ -21,9 +22,9 @@ services:
       APP_TIMEZONE: Europe/Berlin
       LOG_LEVEL: INFO
 
-      GATEWAY_ID: GW-DEMO-001
-      CUSTOMER_ID: CUSTOMER-DEMO
-      SITE_ID: SITE-DEMO-001
+      GATEWAY_ID: GlobeDemo-01
+      CUSTOMER_ID: Globe
+      SITE_ID: Office
 
       COMPANY_API_URL: http://company-server:8000/api/ingest/gateway
       COMPANY_API_TOKEN: demo-token

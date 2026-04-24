@@ -8,7 +8,10 @@ from fastapi.templating import Jinja2Templates
 
 from app.state import (
     get_all_devices,
+    get_device_alarm_history,
     get_device_by_id,
+    get_device_history,
+    get_devices_by_gateway,
     get_gateways_list,
     save_gateway_packet,
 )
@@ -32,7 +35,6 @@ async def index(request: Request):
         request=request,
         name="index.html",
     )
-
 
 
 @app.post("/api/ingest/gateway")
@@ -66,6 +68,11 @@ async def api_gateways():
     return {"gateways": get_gateways_list()}
 
 
+@app.get("/api/gateways/{gateway_id}/devices")
+async def api_gateway_devices(gateway_id: str):
+    return {"devices": get_devices_by_gateway(gateway_id)}
+
+
 @app.get("/api/devices")
 async def api_devices():
     return {"devices": get_all_devices()}
@@ -79,3 +86,13 @@ async def api_device(device_id: str):
         raise HTTPException(status_code=404, detail="Устройство не найдено")
 
     return device
+
+
+@app.get("/api/devices/{device_id}/history")
+async def api_device_history(device_id: str):
+    return {"history": get_device_history(device_id)}
+
+
+@app.get("/api/devices/{device_id}/alarm-history")
+async def api_device_alarm_history(device_id: str):
+    return {"alarm_history": get_device_alarm_history(device_id)}

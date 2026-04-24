@@ -1,7 +1,22 @@
-const gatewaysData = document.getElementById("gatewaysData");
-const devicesData = document.getElementById("devicesData");
+const clientSelect = document.getElementById("clientSelect");
+const deviceSelect = document.getElementById("deviceSelect");
+const deviceSelectWrap = document.getElementById("deviceSelectWrap");
+
+const deviceSection = document.getElementById("deviceSection");
+const deviceTitle = document.getElementById("deviceTitle");
+const deviceData = document.getElementById("deviceData");
+
+const alarmHistorySection = document.getElementById("alarmHistorySection");
+const alarmHistoryData = document.getElementById("alarmHistoryData");
+
+const chartSection = document.getElementById("chartSection");
+const chartCanvas = document.getElementById("pressureChart");
 
 const POLL_INTERVAL_MS = 3000;
+
+let selectedGatewayId = "";
+let selectedDeviceId = "";
+let pressureChart = null;
 
 function escapeHtml(value) {
     return String(value ?? "—")
@@ -21,6 +36,15 @@ function formatDateTime(value) {
     return date.toLocaleString("ru-RU");
 }
 
+function formatTime(value) {
+    if (!value || value === "—") return "—";
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "—";
+
+    return date.toLocaleTimeString("ru-RU");
+}
+
 function flagText(value, onText = "Вкл", offText = "Выкл") {
     if (value === 1) return onText;
     if (value === 0) return offText;
@@ -34,171 +58,290 @@ function statusClass(status) {
     return "";
 }
 
-function renderGateways(gateways) {
-    if (!Array.isArray(gateways) || gateways.length === 0) {
-        gatewaysData.innerHTML = `<div class="placeholder">Gateway пока не подключался</div>`;
+function connectedClass(connected) {
+    return connected ? "ok" : "bad";
+}
+
+function createChart() {
+    pressureChart = new Chart(chartCanvas, {
+        type: "line",
+        data: {
+            labels: [],
+            datasets: [
+                {
+                    label: "Уставка давления, бар",
+                    data: [],
+                    borderColor: "#4bc0c0",
+                    backgroundColor: "rgba(75, 192, 192, 0.15)",
+                    tension: 0.25,
+                    fill: true,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+                legend: {
+                    labels: {
+                        color: "#e6e6e6",
+                    },
+                },
+            },
+            scales: {
+                x: {
+                    ticks: { color: "#cccccc" },
+                    grid: { color: "rgba(255,255,255,0.08)" },
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: "#cccccc" },
+                    grid: { color: "rgba(255,255,255,0.08)" },
+                },
+            },
+        },
+    });
+}
+
+function clearChart() {
+    if (!pressureChart) return;
+
+    pressureChart.data.labels = [];
+    pressureChart.data.datasets[0].data = [];
+    pressureChart.update();
+}
+
+function updateChart(history) {
+    if (!Array.isArray(history) || history.length === 0) {
+        clearChart();
         return;
     }
 
-    gatewaysData.innerHTML = gateways.map((gateway) => `
-        <div class="gateway-card">
-            <div class="kv-grid">
-                <div class="kv-item">
-                    <div class="kv-label">Gateway</div>
-                    <div class="kv-value">${escapeHtml(gateway.gateway_id)}</div>
-                </div>
+    pressureChart.data.labels = history.map((point) => formatTime(point.timestamp));
+    pressureChart.data.datasets[0].data = history.map((point) => point.value);
+    pressureChart.update();
+}
 
-                <div class="kv-item">
-                    <div class="kv-label">Заказчик</div>
-                    <div class="kv-value">${escapeHtml(gateway.customer_id)}</div>
-                </div>
+function renderDevice(device) {
+    if (!device) {
+        deviceData.innerHTML = `<div class="placeholder">Выберите устройство</div>`;
+        return;
+    }
 
-                <div class="kv-item">
-                    <div class="kv-label">Объект</div>
-                    <div class="kv-value">${escapeHtml(gateway.site_id)}</div>
-                </div>
+    deviceTitle.textContent = device.device_id || "Устройство";
 
-                <div class="kv-item">
-                    <div class="kv-label">Устройств</div>
-                    <div class="kv-value">${escapeHtml(gateway.devices_count)}</div>
-                </div>
+    deviceData.innerHTML = `
+        <div class="kv-grid">
+            <div class="kv-item">
+                <div class="kv-label">Подключено</div>
+                <div class="kv-value ${connectedClass(device.connected)}">${device.connected ? "Да" : "Нет"}</div>
+            </div>
 
-                <div class="kv-item">
-                    <div class="kv-label">Последняя отправка gateway</div>
-                    <div class="kv-value">${escapeHtml(formatDateTime(gateway.last_seen))}</div>
-                </div>
+            <div class="kv-item">
+                <div class="kv-label">Статус</div>
+                <div class="kv-value ${statusClass(device.status)}">${escapeHtml(device.status_text || "Неизвестно")}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Уставка давления</div>
+                <div class="kv-value">${escapeHtml(device.setpoint)} бар</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Температура</div>
+                <div class="kv-value">${escapeHtml(device.temperature)} °C</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Запуск</div>
+                <div class="kv-value">${escapeHtml(flagText(device.run))}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Предупреждение</div>
+                <div class="kv-value ${device.warning === 1 ? "warn" : ""}">${escapeHtml(flagText(device.warning))}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Авария</div>
+                <div class="kv-value ${device.alarm === 1 ? "bad" : ""}">${escapeHtml(flagText(device.alarm))}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Сброс аварии</div>
+                <div class="kv-value ${device.ack === 1 ? "ack" : ""}">${escapeHtml(flagText(device.ack, "Нажата", "Не нажата"))}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Последнее обновление</div>
+                <div class="kv-value">${escapeHtml(formatDateTime(device.last_seen))}</div>
             </div>
         </div>
-    `).join("");
+    `;
 }
 
-function renderDevices(devices) {
-    if (!Array.isArray(devices) || devices.length === 0) {
-        devicesData.innerHTML = `<div class="placeholder">Данных от устройств пока нет</div>`;
+function renderAlarmHistory(items) {
+    if (!Array.isArray(items) || items.length === 0) {
+        alarmHistoryData.innerHTML = `<div class="placeholder">Аварий пока не было</div>`;
         return;
     }
 
-    devicesData.innerHTML = devices.map((device) => {
-        const connectedClass = device.connected ? "ok" : "bad";
-        const connectedText = device.connected ? "Да" : "Нет";
+    const rows = items
+        .slice()
+        .reverse()
+        .map((item) => `<li>${escapeHtml(formatDateTime(item.timestamp))}</li>`)
+        .join("");
 
-        return `
-            <div class="device-card card">
-                <h2>${escapeHtml(device.device_id)}</h2>
-
-                <div class="kv-grid">
-                    <div class="kv-item">
-                        <div class="kv-label">Заказчик</div>
-                        <div class="kv-value">${escapeHtml(device.customer_id)}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Объект</div>
-                        <div class="kv-value">${escapeHtml(device.site_id)}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Gateway</div>
-                        <div class="kv-value">${escapeHtml(device.gateway_id)}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Подключено</div>
-                        <div class="kv-value ${connectedClass}">${connectedText}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Статус</div>
-                        <div class="kv-value ${statusClass(device.status)}">${escapeHtml(device.status_text || "Неизвестно")}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Уставка давления</div>
-                        <div class="kv-value">${escapeHtml(device.setpoint)} бар</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Температура</div>
-                        <div class="kv-value">${escapeHtml(device.temperature)} °C</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Запуск</div>
-                        <div class="kv-value">${escapeHtml(flagText(device.run))}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Предупреждение</div>
-                        <div class="kv-value ${device.warning === 1 ? "warn" : ""}">${escapeHtml(flagText(device.warning))}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Авария</div>
-                        <div class="kv-value ${device.alarm === 1 ? "bad" : ""}">${escapeHtml(flagText(device.alarm))}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Сброс аварии</div>
-                        <div class="kv-value ${device.ack === 1 ? "ack" : ""}">${escapeHtml(flagText(device.ack, "Нажата", "Не нажата"))}</div>
-                    </div>
-
-                    <div class="kv-item">
-                        <div class="kv-label">Последнее сообщение ESP</div>
-                        <div class="kv-value">${escapeHtml(formatDateTime(device.last_seen))}</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join("");
+    alarmHistoryData.innerHTML = `<ul class="history-list">${rows}</ul>`;
 }
 
-async function loadGateways() {
-    const res = await fetch(`/api/gateways?t=${Date.now()}`, {
+async function loadClients() {
+    const res = await fetch(`/api/gateways?t=${Date.now()}`, { cache: "no-store" });
+
+    if (!res.ok) {
+        throw new Error("Не удалось загрузить клиентов");
+    }
+
+    const data = await res.json();
+    const gateways = Array.isArray(data.gateways) ? data.gateways : [];
+
+    const oldValue = selectedGatewayId;
+
+    clientSelect.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = gateways.length ? "-- Выберите клиента --" : "-- Клиентов нет --";
+    clientSelect.appendChild(placeholder);
+
+    gateways.forEach((gateway) => {
+        const option = document.createElement("option");
+        option.value = gateway.gateway_id;
+        option.textContent = `${gateway.gateway_id} — ${gateway.customer_id} / ${gateway.site_id}`;
+        clientSelect.appendChild(option);
+    });
+
+    if (oldValue && gateways.some((gateway) => gateway.gateway_id === oldValue)) {
+        clientSelect.value = oldValue;
+    }
+}
+
+async function loadDevicesForClient(gatewayId) {
+    if (!gatewayId) {
+        deviceSelectWrap.style.display = "none";
+        return;
+    }
+
+    const res = await fetch(`/api/gateways/${encodeURIComponent(gatewayId)}/devices?t=${Date.now()}`, {
         cache: "no-store",
     });
 
     if (!res.ok) {
-        throw new Error("Не удалось загрузить gateway");
+        throw new Error("Не удалось загрузить устройства клиента");
     }
 
     const data = await res.json();
-    renderGateways(data.gateways);
+    const devices = Array.isArray(data.devices) ? data.devices : [];
+
+    const oldValue = selectedDeviceId;
+
+    deviceSelect.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = devices.length ? "-- Выберите устройство --" : "-- Устройств нет --";
+    deviceSelect.appendChild(placeholder);
+
+    devices.forEach((device) => {
+        const option = document.createElement("option");
+        option.value = device.device_id;
+        option.textContent = device.device_id;
+        deviceSelect.appendChild(option);
+    });
+
+    if (oldValue && devices.some((device) => device.device_id === oldValue)) {
+        deviceSelect.value = oldValue;
+    } else {
+        selectedDeviceId = "";
+    }
+
+    deviceSelectWrap.style.display = "block";
 }
 
-async function loadDevices() {
-    const res = await fetch(`/api/devices?t=${Date.now()}`, {
+async function loadSelectedDevice() {
+    if (!selectedDeviceId) {
+        deviceSection.style.display = "none";
+        alarmHistorySection.style.display = "none";
+        chartSection.style.display = "none";
+        clearChart();
+        return;
+    }
+
+    const deviceRes = await fetch(`/api/devices/${encodeURIComponent(selectedDeviceId)}?t=${Date.now()}`, {
         cache: "no-store",
     });
 
-    if (!res.ok) {
-        throw new Error("Не удалось загрузить устройства");
+    if (!deviceRes.ok) {
+        throw new Error("Не удалось загрузить устройство");
     }
 
-    const data = await res.json();
-    renderDevices(data.devices);
+    const device = await deviceRes.json();
+
+    const historyRes = await fetch(`/api/devices/${encodeURIComponent(selectedDeviceId)}/history?t=${Date.now()}`, {
+        cache: "no-store",
+    });
+
+    const alarmRes = await fetch(`/api/devices/${encodeURIComponent(selectedDeviceId)}/alarm-history?t=${Date.now()}`, {
+        cache: "no-store",
+    });
+
+    const historyData = historyRes.ok ? await historyRes.json() : { history: [] };
+    const alarmData = alarmRes.ok ? await alarmRes.json() : { alarm_history: [] };
+
+    deviceSection.style.display = "block";
+    alarmHistorySection.style.display = "block";
+    chartSection.style.display = "block";
+
+    renderDevice(device);
+    renderAlarmHistory(alarmData.alarm_history);
+    updateChart(historyData.history);
 }
 
 async function refreshAll() {
     try {
-        await loadGateways();
-        await loadDevices();
+        await loadClients();
+
+        if (selectedGatewayId) {
+            await loadDevicesForClient(selectedGatewayId);
+        }
+
+        if (selectedDeviceId) {
+            await loadSelectedDevice();
+        }
     } catch (error) {
         console.error(error);
-        gatewaysData.innerHTML = `<div class="error-box">Ошибка связи с сервером фирмы</div>`;
-        devicesData.innerHTML = `<div class="error-box">Ошибка загрузки устройств</div>`;
     }
 }
 
-function startPolling() {
-    refreshAll();
-    setInterval(refreshAll, POLL_INTERVAL_MS);
-}
+clientSelect.addEventListener("change", async (event) => {
+    selectedGatewayId = event.target.value;
+    selectedDeviceId = "";
 
-/*
-    Секретная кнопка.
-    Если feature.js содержит свою функцию toggleFeature(),
-    она заменит эту fallback-функцию.
-*/
+    deviceSelect.value = "";
+    deviceSection.style.display = "none";
+    alarmHistorySection.style.display = "none";
+    chartSection.style.display = "none";
+    clearChart();
+
+    await loadDevicesForClient(selectedGatewayId);
+});
+
+deviceSelect.addEventListener("change", async (event) => {
+    selectedDeviceId = event.target.value;
+    await loadSelectedDevice();
+});
+
 if (typeof window.toggleFeature !== "function") {
     window.toggleFeature = function () {
         const container = document.getElementById("feature-container");
@@ -233,4 +376,6 @@ if (typeof window.toggleFeature !== "function") {
     };
 }
 
-startPolling();
+createChart();
+refreshAll();
+setInterval(refreshAll, POLL_INTERVAL_MS);

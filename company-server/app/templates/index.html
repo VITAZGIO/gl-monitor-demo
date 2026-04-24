@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GL Monitor — сервер фирмы</title>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
     <style>
         :root {
             color-scheme: dark;
@@ -59,10 +61,27 @@
             padding: 16px;
         }
 
-        .section-title {
+        label {
+            display: block;
             color: var(--muted);
             font-size: 14px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 10px;
+            border: 1px solid var(--line);
+            background: var(--card-2);
+            color: var(--text);
+            font-size: 15px;
+        }
+
+        .selectors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
         }
 
         .kv-grid {
@@ -117,12 +136,23 @@
             border: 1px solid rgba(255, 107, 107, 0.35);
         }
 
-        .device-card {
-            margin-top: 16px;
+        .history-list {
+            margin: 0;
+            padding-left: 20px;
         }
 
-        .gateway-card {
-            margin-bottom: 12px;
+        .history-list li {
+            margin: 6px 0;
+        }
+
+        .chart-wrap {
+            height: 340px;
+        }
+
+        #deviceSection,
+        #alarmHistorySection,
+        #chartSection {
+            display: none;
         }
 
         #secret-btn {
@@ -144,16 +174,41 @@
 
         <div class="layout">
             <section class="card">
-                <h2>Gateway заказчиков</h2>
-                <div id="gatewaysData">
-                    <div class="placeholder">Загрузка...</div>
+                <div class="selectors-grid">
+                    <div>
+                        <label for="clientSelect">Выбрать клиента</label>
+                        <select id="clientSelect">
+                            <option value="">Загрузка...</option>
+                        </select>
+                    </div>
+
+                    <div id="deviceSelectWrap" style="display: none;">
+                        <label for="deviceSelect">Выбрать устройство</label>
+                        <select id="deviceSelect">
+                            <option value="">-- Выберите устройство --</option>
+                        </select>
+                    </div>
                 </div>
             </section>
 
-            <section class="card">
-                <h2>Устройства</h2>
-                <div id="devicesData">
-                    <div class="placeholder">Загрузка...</div>
+            <section class="card" id="deviceSection">
+                <h2 id="deviceTitle">Устройство</h2>
+                <div id="deviceData">
+                    <div class="placeholder">Выберите устройство</div>
+                </div>
+            </section>
+
+            <section class="card" id="alarmHistorySection">
+                <h2>История аварий</h2>
+                <div id="alarmHistoryData">
+                    <div class="placeholder">Аварий пока не было</div>
+                </div>
+            </section>
+
+            <section class="card" id="chartSection">
+                <h2>График давления по времени</h2>
+                <div class="chart-wrap">
+                    <canvas id="pressureChart"></canvas>
                 </div>
             </section>
         </div>
@@ -162,9 +217,7 @@
     <div id="feature-container"></div>
     <div id="secret-btn" onclick="toggleFeature()"></div>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/static/app.js"></script>
     <script src="/static/feature.js"></script>
 </body>
 </html>
-
