@@ -8,51 +8,68 @@ import paho.mqtt.client as mqtt
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
 DEVICE_ID = os.getenv("DEVICE_ID", "ESP32-DEMO-001")
-PUBLISH_INTERVAL = float(os.getenv("PUBLISH_INTERVAL", "3"))
+PUBLISH_INTERVAL = float(os.getenv("PUBLISH_INTERVAL", "5"))
 
 client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
 client.connect(MQTT_HOST, MQTT_PORT, 60)
 client.loop_start()
 
-setpoint = round(random.uniform(4.5, 6.0), 1)
-online = True
+temperature = round(random.uniform(19.0, 23.0), 1)
+run = 0
+warning = 0
+alarm = 0
+ack = 0
 
 try:
     while True:
+        temperature = round(
+            min(35.0, max(10.0, temperature + random.uniform(-0.3, 0.3))),
+            1,
+        )
+
+        setpoint = round(temperature / 6.0, 1)
+
+        if random.random() < 0.06:
+            run = 1 - run
+
+        if random.random() < 0.06:
+            warning = 1 - warning
+
+        if random.random() < 0.04:
+            alarm = 1 - alarm
+
         if random.random() < 0.08:
-            online = not online
-
-        if online:
-            setpoint = round(
-                min(6.5, max(3.0, setpoint + random.uniform(-0.3, 0.3))),
-                1,
-            )
-
-            roll = random.random()
-            if roll < 0.75:
-                status = 0
-            elif roll < 0.92:
-                status = 1
-            else:
-                status = 2
-
-            payload = {
-                "setpoint": setpoint,
-                "status": str(status),
-            }
-
-            topic = f"devices/{DEVICE_ID}/telemetry"
-
-            client.publish(
-                topic,
-                json.dumps(payload),
-                qos=0,
-                retain=False,
-            )
-
-            print(f"Published: {topic} -> {payload}")
+            ack = 1
         else:
-            print(f"Skipped publish for {DEVICE_ID} (simulate offline)")
+            ack = 0
+
+        if alarm == 1:
+            status = "2"
+        elif warning == 1:
+            status = "1"
+        else:
+            status = "0"
+
+        payload = {
+            "setpoint": setpoint,
+            "status": status,
+            "run": run,
+            "warning": warning,
+            "alarm": alarm,
+            "ack": ack,
+            "temperature": temperature,
+        }
+
+        topic = f"devices/{DEVICE_ID}/telemetry"
+
+        client.publish(
+            topic,
+            json.dumps(payload, ensure_ascii=False),
+            qos=0,
+            retain=False,
+        )
+
+        print(f"Published: {topic} -> {payload}")
 
         time.sleep(PUBLISH_INTERVAL)
 

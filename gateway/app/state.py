@@ -57,11 +57,13 @@ def ensure_device(device_id: str) -> dict:
 
 def add_history_point(device: dict, value: float, timestamp: str | None = None) -> None:
     device["history"].append(make_history_point(value, timestamp))
+
     if len(device["history"]) > HISTORY_LIMIT:
         device["history"] = device["history"][-HISTORY_LIMIT:]
 
 
 def add_alarm_event(device: dict, timestamp: str | None = None) -> None:
     device["alarm_history"].append(make_alarm_event(timestamp))
+
     if len(device["alarm_history"]) > ALARM_HISTORY_LIMIT:
         device["alarm_history"] = device["alarm_history"][-ALARM_HISTORY_LIMIT:]

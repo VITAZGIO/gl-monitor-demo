@@ -3,7 +3,6 @@ import logging
 import os
 import re
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
 
@@ -18,7 +17,7 @@ from app.state import (
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
-logger = logging.getLogger("gl-monitor.mqtt")
+logger = logging.getLogger("gl-monitor.gateway.mqtt")
 
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
@@ -57,6 +56,7 @@ def parse_float(payload: dict, field_name: str) -> float | None:
         return None
 
     value = payload.get(field_name)
+
     if value is None:
         return None
 
@@ -71,6 +71,7 @@ def parse_int_flag(payload: dict, field_name: str) -> int | None:
         return None
 
     value = payload.get(field_name)
+
     if value is None:
         return None
 
@@ -85,9 +86,11 @@ def parse_int_flag(payload: dict, field_name: str) -> int | None:
 
     if isinstance(value, str):
         normalized = value.strip().lower()
-        if normalized in {"1", "true", "on", "yes"}:
+
+        if normalized in {"1", "true", "on", "yes", "вкл"}:
             return 1
-        if normalized in {"0", "false", "off", "no"}:
+
+        if normalized in {"0", "false", "off", "no", "выкл"}:
             return 0
 
     return None
@@ -98,6 +101,7 @@ def parse_status(payload: dict) -> int | None:
         return None
 
     value = payload.get("status")
+
     if value is None:
         return None
 
@@ -115,10 +119,13 @@ def parse_status(payload: dict) -> int | None:
 def derive_status(parsed_warning: int | None, parsed_alarm: int | None) -> int | None:
     if parsed_alarm == 1:
         return 2
+
     if parsed_warning == 1:
         return 1
+
     if parsed_alarm == 0 and parsed_warning == 0:
         return 0
+
     return None
 
 
@@ -147,9 +154,10 @@ def on_message(client, userdata, msg):
     raw_payload = msg.payload.decode("utf-8", errors="replace")
 
     match = TOPIC_PATTERN.match(topic)
+
     if not match:
         logger.warning(
-            "MQTT message skipped: invalid topic\n topic: %s\n payload: %s",
+            "MQTT skipped: invalid topic\n topic: %s\n payload: %s",
             topic,
             raw_payload,
         )
@@ -174,7 +182,7 @@ def on_message(client, userdata, msg):
 
     if not isinstance(payload, dict):
         logger.warning(
-            "MQTT message skipped: payload is not JSON object\n topic: %s\n payload: %s",
+            "MQTT skipped: payload is not object\n topic: %s\n payload: %s",
             topic,
             raw_payload,
         )
@@ -182,7 +190,7 @@ def on_message(client, userdata, msg):
 
     if not payload:
         logger.warning(
-            "MQTT message skipped: empty JSON object\n topic: %s\n payload: %s",
+            "MQTT skipped: empty payload object\n topic: %s\n payload: %s",
             topic,
             raw_payload,
         )
@@ -190,10 +198,12 @@ def on_message(client, userdata, msg):
 
     parsed_setpoint = parse_float(payload, "setpoint")
     parsed_temperature = parse_float(payload, "temperature")
+
     parsed_run = parse_int_flag(payload, "run")
     parsed_warning = parse_int_flag(payload, "warning")
     parsed_alarm = parse_int_flag(payload, "alarm")
     parsed_ack = parse_int_flag(payload, "ack")
+
     parsed_status = parse_status(payload)
 
     if parsed_status is None:
@@ -214,7 +224,7 @@ def on_message(client, userdata, msg):
 
     if not has_any_valid_field:
         logger.warning(
-            "MQTT message skipped: no valid supported fields\n topic: %s\n payload: %s",
+            "MQTT skipped: no valid fields\n topic: %s\n payload: %s",
             topic,
             raw_payload,
         )
@@ -241,6 +251,7 @@ def on_message(client, userdata, msg):
 
     if parsed_alarm is not None:
         device["alarm"] = parsed_alarm
+
         if parsed_alarm == 1 and previous_alarm != 1:
             add_alarm_event(device, timestamp)
 
@@ -265,27 +276,6 @@ def on_message(client, userdata, msg):
         parsed_alarm,
         parsed_ack,
     )
-
-    invalid_fields: list[str] = []
-    for field_name, parsed_value in (
-        ("setpoint", parsed_setpoint),
-        ("temperature", parsed_temperature),
-        ("run", parsed_run),
-        ("warning", parsed_warning),
-        ("alarm", parsed_alarm),
-        ("ack", parsed_ack),
-        ("status", parsed_status if "status" in payload else 0),
-    ):
-        if field_name in payload and parsed_value is None:
-            invalid_fields.append(field_name)
-
-    if invalid_fields:
-        logger.warning(
-            "MQTT message had invalid fields: %s\n topic: %s\n payload: %s",
-            ", ".join(invalid_fields),
-            topic,
-            raw_payload,
-        )
 
 
 def start_mqtt():
