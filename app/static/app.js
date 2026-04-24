@@ -224,6 +224,7 @@ function renderDeviceCard(data) {
     `;
 }
 
+
 async function loadDevices() {
     const res = await fetch(`/api/devices?t=${Date.now()}`, { cache: "no-store" });
     if (!res.ok) {
