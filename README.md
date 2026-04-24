@@ -56,30 +56,6 @@ devices/+/telemetry
 
 ---
 
-## Структура проекта
-
-gl-monitor-demo/
-├── app/
-│   ├── main.py
-│   ├── mqtt_client.py
-│   ├── state.py
-│   ├── static/
-│   │   ├── app.js
-│   │   └── feature.js
-│   └── templates/
-│       └── index.html
-├── mosquitto/
-│   └── mosquitto.conf
-├── Dockerfile
-├── publisher.Dockerfile
-├── publisher.py
-├── docker-compose.yml
-├── requirements.txt
-└── README.md
-
-
----
-
 ## Файлы и их назначение
 
 ### app/main.py
