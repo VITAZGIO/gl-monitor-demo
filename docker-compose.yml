@@ -1,22 +1,41 @@
 services:
-  gl-monitor-demo:
-    build: .
-    container_name: gl-monitor-demo
+  company-server:
+    build: ./company-server
+    container_name: gl-monitor-company-server
     ports:
       - "8000:8000"
     environment:
-      MQTT_HOST: mosquitto
-      MQTT_PORT: 1883
-      MQTT_TOPIC: devices/+/telemetry
-      APP_TIMEZONE: Europe/Berlin
-      LOG_LEVEL: INFO
-    depends_on:
-      - mosquitto
+      COMPANY_API_TOKEN: demo-token
     restart: unless-stopped
 
-  mosquitto:
+  gateway-app:
+    build: ./gateway
+    container_name: gl-monitor-gateway
+    ports:
+      - "8100:8100"
+    environment:
+      MQTT_HOST: gateway-mosquitto
+      MQTT_PORT: 1883
+      MQTT_TOPIC: devices/+/telemetry
+
+      APP_TIMEZONE: Europe/Berlin
+      LOG_LEVEL: INFO
+
+      GATEWAY_ID: GW-DEMO-001
+      CUSTOMER_ID: CUSTOMER-DEMO
+      SITE_ID: SITE-DEMO-001
+
+      COMPANY_API_URL: http://company-server:8000/api/ingest/gateway
+      COMPANY_API_TOKEN: demo-token
+      EXPORT_INTERVAL_SECONDS: 5
+    depends_on:
+      - gateway-mosquitto
+      - company-server
+    restart: unless-stopped
+
+  gateway-mosquitto:
     image: eclipse-mosquitto:2
-    container_name: gl-monitor-mosquitto
+    container_name: gl-monitor-gateway-mosquitto
     ports:
       - "1883:1883"
     volumes:
@@ -29,12 +48,12 @@ services:
       dockerfile: publisher.Dockerfile
     container_name: gl-monitor-publisher
     environment:
-      MQTT_HOST: mosquitto
+      MQTT_HOST: gateway-mosquitto
       MQTT_PORT: 1883
       DEVICE_ID: ESP32-DEMO-001
-      PUBLISH_INTERVAL: 3
+      PUBLISH_INTERVAL: 5
     depends_on:
-      - mosquitto
+      - gateway-mosquitto
     restart: unless-stopped
     profiles:
       - demo-publisher

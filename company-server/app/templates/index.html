@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GL Monitor — сервер фирмы</title>
+
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #101418;
+            --card: #182028;
+            --card-2: #1f2933;
+            --text: #e8edf2;
+            --muted: #9fb0c0;
+            --line: rgba(255, 255, 255, 0.08);
+            --ok: #53d769;
+            --bad: #ff6b6b;
+            --warn: #f5c451;
+            --ack: #72b7ff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 16px 40px;
+        }
+
+        h1 {
+            margin: 0 0 20px;
+            font-size: 28px;
+        }
+
+        h2 {
+            margin: 0 0 16px;
+            font-size: 22px;
+        }
+
+        .layout {
+            display: grid;
+            gap: 16px;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 16px;
+        }
+
+        .section-title {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .kv-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 12px;
+        }
+
+        .kv-item {
+            background: var(--card-2);
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .kv-label {
+            color: var(--muted);
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+
+        .kv-value {
+            font-size: 17px;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .ok {
+            color: var(--ok);
+        }
+
+        .bad {
+            color: var(--bad);
+        }
+
+        .warn {
+            color: var(--warn);
+        }
+
+        .ack {
+            color: var(--ack);
+        }
+
+        .placeholder,
+        .error-box {
+            padding: 18px;
+            border-radius: 12px;
+            background: var(--card-2);
+        }
+
+        .error-box {
+            border: 1px solid rgba(255, 107, 107, 0.35);
+        }
+
+        .device-card {
+            margin-top: 16px;
+        }
+
+        .gateway-card {
+            margin-bottom: 12px;
+        }
+
+        #secret-btn {
+            position: fixed;
+            bottom: 5px;
+            right: 5px;
+            width: 20px;
+            height: 20px;
+            opacity: 0.1;
+            cursor: pointer;
+            z-index: 9999;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <h1>Сервер фирмы GL Monitor</h1>
+
+        <div class="layout">
+            <section class="card">
+                <h2>Gateway заказчиков</h2>
+                <div id="gatewaysData">
+                    <div class="placeholder">Загрузка...</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Устройства</h2>
+                <div id="devicesData">
+                    <div class="placeholder">Загрузка...</div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <div id="feature-container"></div>
+    <div id="secret-btn" onclick="toggleFeature()"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/static/app.js"></script>
+    <script src="/static/feature.js"></script>
+</body>
+</html>
+
