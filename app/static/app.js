@@ -3,9 +3,58 @@ const deviceData = document.getElementById("deviceData");
 const chartCanvas = document.getElementById("pressureChart");
 const chartCard = document.getElementById("chartCard");
 
+const POLL_INTERVAL_MS = 3000;
+
 let selectedDeviceId = "";
-let interval = null;
+let pollTimer = null;
 let pressureChart = null;
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function formatTime(isoString) {
+    if (!isoString || isoString === "—") return "—";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleTimeString("ru-RU");
+}
+
+function formatDateTime(isoString) {
+    if (!isoString || isoString === "—") return "—";
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return "—";
+    return date.toLocaleString("ru-RU");
+}
+
+function flagText(value, onText = "Вкл", offText = "Выкл") {
+    if (value === 1) return onText;
+    if (value === 0) return offText;
+    return "—";
+}
+
+function flagClass(value, kind = "default") {
+    if (value === null || value === undefined) return "flag-unknown";
+
+    if (kind === "alarm") {
+        return value === 1 ? "flag-on flag-alarm" : "flag-off";
+    }
+
+    if (kind === "warning") {
+        return value === 1 ? "flag-on flag-warning" : "flag-off";
+    }
+
+    if (kind === "ack") {
+        return value === 1 ? "flag-on flag-ack" : "flag-off";
+    }
+
+    return value === 1 ? "flag-on" : "flag-off";
+}
 
 function createChart() {
     pressureChart = new Chart(chartCanvas, {
@@ -36,21 +85,13 @@ function createChart() {
             },
             scales: {
                 x: {
-                    ticks: {
-                        color: "#cccccc",
-                    },
-                    grid: {
-                        color: "rgba(255, 255, 255, 0.08)",
-                    },
+                    ticks: { color: "#cccccc" },
+                    grid: { color: "rgba(255, 255, 255, 0.08)" },
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        color: "#cccccc",
-                    },
-                    grid: {
-                        color: "rgba(255, 255, 255, 0.08)",
-                    },
+                    ticks: { color: "#cccccc" },
+                    grid: { color: "rgba(255, 255, 255, 0.08)" },
                 },
             },
         },
@@ -64,49 +105,53 @@ function clearChart() {
     pressureChart.update();
 }
 
-function showChart() {
-    chartCard.style.display = "block";
-}
-
 function hideChart() {
     chartCard.style.display = "none";
 }
 
-function formatTime(isoString) {
-    if (!isoString || isoString === "—") return "—";
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) return "—";
-    return date.toLocaleTimeString("ru-RU");
+function showChart() {
+    chartCard.style.display = "block";
 }
 
-function formatDateTime(isoString) {
-    if (!isoString || isoString === "—") return "Нет данных";
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) return "Нет данных";
-    return date.toLocaleString("ru-RU");
+function renderPlaceholder(message) {
+    deviceData.innerHTML = `<div class="placeholder">${escapeHtml(message)}</div>`;
 }
 
-function escapeHtml(value) {
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-function renderEmpty(message = "Выберите устройство") {
-    deviceData.innerHTML = `<div class="empty">${escapeHtml(message)}</div>`;
-}
-
-function renderError(message = "Ошибка связи с backend") {
+function renderError(message) {
     deviceData.innerHTML = `<div class="error-box">${escapeHtml(message)}</div>`;
+}
+
+function renderAlarmHistory(items) {
+    if (!Array.isArray(items) || !items.length) {
+        return `
+            <div class="extra-box">
+                <div class="extra-title">История аварий</div>
+                <div class="muted-line">Аварий пока не было</div>
+            </div>
+        `;
+    }
+
+    const rows = items
+        .slice()
+        .reverse()
+        .map((item) => {
+            return `<li>${escapeHtml(formatDateTime(item.timestamp))}</li>`;
+        })
+        .join("");
+
+    return `
+        <div class="extra-box">
+            <div class="extra-title">История аварий</div>
+            <ul class="history-list">${rows}</ul>
+        </div>
+    `;
 }
 
 function renderDeviceCard(data) {
     const rawTopic = escapeHtml(data.raw_topic || "—");
     const rawPayload = escapeHtml(data.raw_payload || "—");
     const setpoint = escapeHtml(data.setpoint || "—");
+    const temperature = escapeHtml(data.temperature || "—");
     const statusText = escapeHtml(data.status_text || "Неизвестно");
     const deviceId = escapeHtml(data.device_id || "—");
     const connectedText = data.connected ? "Да" : "Нет";
@@ -128,8 +173,13 @@ function renderDeviceCard(data) {
                 </div>
 
                 <div class="kv-item">
-                    <div class="kv-label">Уставка</div>
+                    <div class="kv-label">Уставка давления</div>
                     <div class="kv-value">${setpoint}</div>
+                </div>
+
+                <div class="kv-item">
+                    <div class="kv-label">Температура</div>
+                    <div class="kv-value">${temperature}</div>
                 </div>
 
                 <div class="kv-item">
@@ -137,6 +187,33 @@ function renderDeviceCard(data) {
                     <div class="kv-value">${escapeHtml(formatDateTime(data.last_seen))}</div>
                 </div>
             </div>
+
+            <div class="extra-box">
+                <div class="extra-title">Входы стенда</div>
+                <div class="inputs-grid">
+                    <div class="input-row">
+                        <span class="input-name">RUN</span>
+                        <span class="input-state ${flagClass(data.run)}">${flagText(data.run)}</span>
+                    </div>
+
+                    <div class="input-row">
+                        <span class="input-name">WARNING</span>
+                        <span class="input-state ${flagClass(data.warning, "warning")}">${flagText(data.warning)}</span>
+                    </div>
+
+                    <div class="input-row">
+                        <span class="input-name">ALARM</span>
+                        <span class="input-state ${flagClass(data.alarm, "alarm")}">${flagText(data.alarm)}</span>
+                    </div>
+
+                    <div class="input-row">
+                        <span class="input-name">ACK</span>
+                        <span class="input-state ${flagClass(data.ack, "ack")}">${flagText(data.ack, "Нажата", "Не нажата")}</span>
+                    </div>
+                </div>
+            </div>
+
+            ${renderAlarmHistory(data.alarm_history)}
 
             <div class="debug-box">
                 <div class="debug-title">Последнее MQTT-сообщение</div>
@@ -148,82 +225,64 @@ function renderDeviceCard(data) {
 }
 
 async function loadDevices() {
-    const previousValue = deviceSelect.value;
-
-    try {
-        const res = await fetch("/api/devices?t=" + Date.now(), {
-            cache: "no-store",
-        });
-
-        if (!res.ok) {
-            throw new Error("Не удалось загрузить список устройств");
-        }
-
-        const data = await res.json();
-        const devices = Array.isArray(data.devices) ? data.devices : [];
-
-        deviceSelect.innerHTML = '<option value="">-- Выберите устройство --</option>';
-
-        devices.forEach((d) => {
-            const opt = document.createElement("option");
-            opt.value = d;
-            opt.textContent = d;
-            deviceSelect.appendChild(opt);
-        });
-
-        if (previousValue && devices.includes(previousValue)) {
-            deviceSelect.value = previousValue;
-            selectedDeviceId = previousValue;
-            return;
-        }
-
-        if (selectedDeviceId && devices.includes(selectedDeviceId)) {
-            deviceSelect.value = selectedDeviceId;
-            return;
-        }
-
-        if (selectedDeviceId && !devices.includes(selectedDeviceId)) {
-            selectedDeviceId = "";
-            deviceSelect.value = "";
-            renderEmpty("Устройство недоступно");
-            clearChart();
-            hideChart();
-        }
-    } catch (error) {
-        console.error(error);
-
-        deviceSelect.innerHTML = '<option value="">-- Ошибка загрузки --</option>';
-
-        if (!selectedDeviceId) {
-            renderError("Ошибка связи с backend");
-            clearChart();
-            hideChart();
-        }
+    const res = await fetch(`/api/devices?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) {
+        throw new Error("Не удалось загрузить список устройств");
     }
+
+    const data = await res.json();
+    const devices = Array.isArray(data.devices) ? data.devices : [];
+    const oldSelected = selectedDeviceId;
+
+    deviceSelect.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = devices.length
+        ? "-- Выберите устройство --"
+        : "-- Устройств нет --";
+    deviceSelect.appendChild(placeholder);
+
+    devices.forEach((deviceId) => {
+        const option = document.createElement("option");
+        option.value = deviceId;
+        option.textContent = deviceId;
+        deviceSelect.appendChild(option);
+    });
+
+    if (oldSelected && devices.includes(oldSelected)) {
+        selectedDeviceId = oldSelected;
+        deviceSelect.value = oldSelected;
+        return;
+    }
+
+    if (!oldSelected && devices.length > 0) {
+        selectedDeviceId = devices[0];
+        deviceSelect.value = devices[0];
+        return;
+    }
+
+    selectedDeviceId = "";
+    deviceSelect.value = "";
 }
 
 async function loadDevice(deviceId) {
     if (!deviceId) {
-        renderEmpty("Выберите устройство");
+        renderPlaceholder("Ожидание устройства...");
         return;
     }
 
-    try {
-        const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}?t=${Date.now()}`, {
-            cache: "no-store",
-        });
+    const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}?t=${Date.now()}`, {
+        cache: "no-store",
+    });
 
-        if (!res.ok) {
-            renderError("Не удалось загрузить данные устройства");
-            return;
-        }
-
-        const data = await res.json();
-        renderDeviceCard(data);
-    } catch (error) {
-        console.error(error);
-        renderError("Ошибка связи с backend");
+    if (!res.ok) {
+        renderError("Не удалось загрузить данные устройства");
+        return;
     }
+
+    const data = await res.json();
+    renderDeviceCard(data);
 }
 
 async function loadDeviceHistory(deviceId) {
@@ -233,81 +292,71 @@ async function loadDeviceHistory(deviceId) {
         return;
     }
 
-    try {
-        const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`, {
-            cache: "no-store",
-        });
+    const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/history?t=${Date.now()}`, {
+        cache: "no-store",
+    });
 
-        if (!res.ok) {
-            clearChart();
-            hideChart();
-            return;
-        }
-
-        const history = await res.json();
-        const points = Array.isArray(history) ? history : [];
-
-        if (!points.length) {
-            clearChart();
-            hideChart();
-            return;
-        }
-
-        pressureChart.data.labels = points.map((point) => formatTime(point.timestamp));
-        pressureChart.data.datasets[0].data = points.map((point) => point.value);
-        pressureChart.update();
-
-        showChart();
-    } catch (error) {
-        console.error(error);
+    if (!res.ok) {
         clearChart();
         hideChart();
+        return;
     }
+
+    const history = await res.json();
+    const points = Array.isArray(history) ? history : [];
+
+    if (!points.length) {
+        clearChart();
+        hideChart();
+        return;
+    }
+
+    pressureChart.data.labels = points.map((point) => formatTime(point.timestamp));
+    pressureChart.data.datasets[0].data = points.map((point) => point.value);
+    pressureChart.update();
+    showChart();
 }
 
 async function refreshAll() {
-    await loadDevices();
+    try {
+        await loadDevices();
 
-    if (!selectedDeviceId) {
-        renderEmpty("Выберите устройство");
+        if (!selectedDeviceId) {
+            renderPlaceholder("Ожидание устройства...");
+            clearChart();
+            hideChart();
+            return;
+        }
+
+        await loadDevice(selectedDeviceId);
+        await loadDeviceHistory(selectedDeviceId);
+    } catch (error) {
+        console.error(error);
+        renderError("Ошибка связи с backend");
         clearChart();
         hideChart();
-        return;
-    }
-
-    await loadDevice(selectedDeviceId);
-    await loadDeviceHistory(selectedDeviceId);
-}
-
-function startAuto() {
-    stopAuto();
-    interval = setInterval(() => {
-        refreshAll();
-    }, 3000);
-}
-
-function stopAuto() {
-    if (interval) {
-        clearInterval(interval);
-        interval = null;
     }
 }
 
-deviceSelect.addEventListener("change", async (e) => {
-    selectedDeviceId = e.target.value;
+function startPolling() {
+    stopPolling();
+    pollTimer = setInterval(refreshAll, POLL_INTERVAL_MS);
+}
 
-    if (!selectedDeviceId) {
-        renderEmpty("Выберите устройство");
-        clearChart();
-        hideChart();
-        return;
+function stopPolling() {
+    if (pollTimer) {
+        clearInterval(pollTimer);
+        pollTimer = null;
     }
+}
 
+deviceSelect.addEventListener("change", async (event) => {
+    selectedDeviceId = event.target.value;
     await refreshAll();
 });
 
 createChart();
 hideChart();
-renderEmpty("Выберите устройство");
+renderPlaceholder("Загрузка...");
 refreshAll();
-startAuto();
+startPolling();

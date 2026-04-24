@@ -16,6 +16,8 @@
             --line: rgba(255, 255, 255, 0.08);
             --ok: #53d769;
             --bad: #ff6b6b;
+            --warn: #f5c451;
+            --ack: #72b7ff;
         }
 
         * {
@@ -111,6 +113,82 @@
             color: var(--bad);
         }
 
+        .extra-box {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 12px;
+            background: #111820;
+            margin-bottom: 16px;
+        }
+
+        .extra-title {
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        .inputs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 10px;
+        }
+
+        .input-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: var(--card-2);
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+
+        .input-name {
+            font-weight: 700;
+        }
+
+        .input-state {
+            font-weight: 700;
+        }
+
+        .flag-on {
+            color: var(--ok);
+        }
+
+        .flag-off {
+            color: #cbd5e1;
+        }
+
+        .flag-warning {
+            color: var(--warn);
+        }
+
+        .flag-alarm {
+            color: var(--bad);
+        }
+
+        .flag-ack {
+            color: var(--ack);
+        }
+
+        .flag-unknown {
+            color: var(--muted);
+        }
+
+        .history-list {
+            margin: 0;
+            padding-left: 18px;
+        }
+
+        .history-list li {
+            margin: 6px 0;
+        }
+
+        .muted-line {
+            color: var(--muted);
+        }
+
         .debug-box {
             border: 1px solid var(--line);
             border-radius: 12px;
@@ -137,7 +215,7 @@
             font-size: 13px;
         }
 
-        .empty,
+        .placeholder,
         .error-box {
             padding: 18px;
             border-radius: 12px;
@@ -182,7 +260,7 @@
             </section>
 
             <section class="card" id="deviceData">
-                <div class="empty">Выберите устройство</div>
+                <div class="placeholder">Загрузка...</div>
             </section>
 
             <section class="card" id="chartCard">

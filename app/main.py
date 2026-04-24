@@ -24,10 +24,16 @@ def status_to_text(status: int | None) -> str:
     return "Неизвестно"
 
 
-def format_setpoint(value: float | None) -> str:
+def format_bar(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{value:.1f} бар"
+
+
+def format_celsius(value: float | None) -> str:
+    if value is None:
+        return "—"
+    return f"{value:.1f} °C"
 
 
 @app.on_event("startup")
@@ -66,10 +72,16 @@ async def get_device_data(device_id: str):
         "connected": bool(device.get("connected", False)),
         "status": device.get("status"),
         "status_text": status_to_text(device.get("status")),
-        "setpoint": format_setpoint(device.get("setpoint")),
+        "setpoint": format_bar(device.get("setpoint")),
+        "temperature": format_celsius(device.get("temperature")),
+        "run": device.get("run"),
+        "warning": device.get("warning"),
+        "alarm": device.get("alarm"),
+        "ack": device.get("ack"),
         "last_seen": device.get("last_seen") or "—",
         "raw_topic": device.get("raw_topic") or "—",
         "raw_payload": device.get("raw_payload") or "—",
+        "alarm_history": device.get("alarm_history", []),
     }
 
 

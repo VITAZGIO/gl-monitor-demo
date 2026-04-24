@@ -7,14 +7,18 @@ from zoneinfo import ZoneInfo
 
 import paho.mqtt.client as mqtt
 
-from app.state import DEVICES, OFFLINE_TIMEOUT_SECONDS, add_history_point, ensure_device
+from app.state import (
+    APP_TZ,
+    DEVICES,
+    OFFLINE_TIMEOUT_SECONDS,
+    add_alarm_event,
+    add_history_point,
+    ensure_device,
+)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 logging.basicConfig(level=getattr(logging, LOG_LEVEL, logging.INFO))
 logger = logging.getLogger("gl-monitor.mqtt")
-
-APP_TIMEZONE = os.getenv("APP_TIMEZONE", "UTC")
-APP_TZ = ZoneInfo(APP_TIMEZONE)
 
 MQTT_HOST = os.getenv("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.getenv("MQTT_PORT", "1883"))
@@ -48,11 +52,11 @@ def parse_iso_datetime(value: str | None) -> datetime | None:
     return dt
 
 
-def parse_setpoint(payload: dict) -> float | None:
-    if "setpoint" not in payload:
+def parse_float(payload: dict, field_name: str) -> float | None:
+    if field_name not in payload:
         return None
 
-    value = payload.get("setpoint")
+    value = payload.get(field_name)
     if value is None:
         return None
 
@@ -60,6 +64,33 @@ def parse_setpoint(payload: dict) -> float | None:
         return round(float(value), 1)
     except (TypeError, ValueError):
         return None
+
+
+def parse_int_flag(payload: dict, field_name: str) -> int | None:
+    if field_name not in payload:
+        return None
+
+    value = payload.get(field_name)
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return 1 if value else 0
+
+    if isinstance(value, int):
+        return 1 if value != 0 else 0
+
+    if isinstance(value, float):
+        return 1 if int(value) != 0 else 0
+
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "on", "yes"}:
+            return 1
+        if normalized in {"0", "false", "off", "no"}:
+            return 0
+
+    return None
 
 
 def parse_status(payload: dict) -> int | None:
@@ -71,9 +102,24 @@ def parse_status(payload: dict) -> int | None:
         return None
 
     try:
-        return int(value)
+        parsed = int(value)
     except (TypeError, ValueError):
         return None
+
+    if parsed in (0, 1, 2):
+        return parsed
+
+    return None
+
+
+def derive_status(parsed_warning: int | None, parsed_alarm: int | None) -> int | None:
+    if parsed_alarm == 1:
+        return 2
+    if parsed_warning == 1:
+        return 1
+    if parsed_alarm == 0 and parsed_warning == 0:
+        return 0
+    return None
 
 
 def refresh_devices_online_status() -> None:
@@ -112,7 +158,6 @@ def on_message(client, userdata, msg):
     device_id = match.group("device_id")
     device = ensure_device(device_id)
 
-    # debug сохраняем всегда для валидного device topic
     device["raw_topic"] = topic
     device["raw_payload"] = raw_payload
 
@@ -143,10 +188,30 @@ def on_message(client, userdata, msg):
         )
         return
 
-    parsed_setpoint = parse_setpoint(payload)
+    parsed_setpoint = parse_float(payload, "setpoint")
+    parsed_temperature = parse_float(payload, "temperature")
+    parsed_run = parse_int_flag(payload, "run")
+    parsed_warning = parse_int_flag(payload, "warning")
+    parsed_alarm = parse_int_flag(payload, "alarm")
+    parsed_ack = parse_int_flag(payload, "ack")
     parsed_status = parse_status(payload)
 
-    has_any_valid_field = parsed_setpoint is not None or parsed_status is not None
+    if parsed_status is None:
+        parsed_status = derive_status(parsed_warning, parsed_alarm)
+
+    has_any_valid_field = any(
+        value is not None
+        for value in (
+            parsed_setpoint,
+            parsed_temperature,
+            parsed_run,
+            parsed_warning,
+            parsed_alarm,
+            parsed_ack,
+            parsed_status,
+        )
+    )
+
     if not has_any_valid_field:
         logger.warning(
             "MQTT message skipped: no valid supported fields\n topic: %s\n payload: %s",
@@ -155,7 +220,9 @@ def on_message(client, userdata, msg):
         )
         return
 
+    previous_alarm = device.get("alarm")
     timestamp = now_iso()
+
     device["last_seen"] = timestamp
     device["connected"] = True
 
@@ -163,22 +230,54 @@ def on_message(client, userdata, msg):
         device["setpoint"] = parsed_setpoint
         add_history_point(device, parsed_setpoint, timestamp)
 
+    if parsed_temperature is not None:
+        device["temperature"] = parsed_temperature
+
+    if parsed_run is not None:
+        device["run"] = parsed_run
+
+    if parsed_warning is not None:
+        device["warning"] = parsed_warning
+
+    if parsed_alarm is not None:
+        device["alarm"] = parsed_alarm
+        if parsed_alarm == 1 and previous_alarm != 1:
+            add_alarm_event(device, timestamp)
+
+    if parsed_ack is not None:
+        device["ack"] = parsed_ack
+
     if parsed_status is not None:
         device["status"] = parsed_status
 
     logger.info(
-        "MQTT received:\n topic: %s\n payload: %s\n parsed: setpoint=%s status=%s",
+        "MQTT received:\n"
+        " topic: %s\n"
+        " payload: %s\n"
+        " parsed: setpoint=%s status=%s temperature=%s run=%s warning=%s alarm=%s ack=%s",
         topic,
         raw_payload,
         parsed_setpoint,
         parsed_status,
+        parsed_temperature,
+        parsed_run,
+        parsed_warning,
+        parsed_alarm,
+        parsed_ack,
     )
 
     invalid_fields: list[str] = []
-    if "setpoint" in payload and parsed_setpoint is None:
-        invalid_fields.append("setpoint")
-    if "status" in payload and parsed_status is None:
-        invalid_fields.append("status")
+    for field_name, parsed_value in (
+        ("setpoint", parsed_setpoint),
+        ("temperature", parsed_temperature),
+        ("run", parsed_run),
+        ("warning", parsed_warning),
+        ("alarm", parsed_alarm),
+        ("ack", parsed_ack),
+        ("status", parsed_status if "status" in payload else 0),
+    ):
+        if field_name in payload and parsed_value is None:
+            invalid_fields.append(field_name)
 
     if invalid_fields:
         logger.warning(
