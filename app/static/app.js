@@ -197,17 +197,17 @@ function renderDeviceCard(data) {
                     </div>
 
                     <div class="input-row">
-                        <span class="input-name">WARNING</span>
+                        <span class="input-name">Предупреждение</span>
                         <span class="input-state ${flagClass(data.warning, "warning")}">${flagText(data.warning)}</span>
                     </div>
 
                     <div class="input-row">
-                        <span class="input-name">ALARM</span>
+                        <span class="input-name">Авария</span>
                         <span class="input-state ${flagClass(data.alarm, "alarm")}">${flagText(data.alarm)}</span>
                     </div>
 
                     <div class="input-row">
-                        <span class="input-name">ACK</span>
+                        <span class="input-name">Сброс аварии</span>
                         <span class="input-state ${flagClass(data.ack, "ack")}">${flagText(data.ack, "Нажата", "Не нажата")}</span>
                     </div>
                 </div>
