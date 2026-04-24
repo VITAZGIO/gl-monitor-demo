@@ -22,6 +22,7 @@ test-publisher -> MQTT broker (Mosquitto) -> FastAPI backend -> frontend
    - GL-002
    - GL-003
 
+
 2. Сообщения отправляются в MQTT topics вида:
 
 devices/GL-001/telemetry  
