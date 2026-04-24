@@ -192,7 +192,7 @@ function renderDeviceCard(data) {
                 <div class="extra-title">Входы стенда</div>
                 <div class="inputs-grid">
                     <div class="input-row">
-                        <span class="input-name">RUN</span>
+                        <span class="input-name">Запуск</span>
                         <span class="input-state ${flagClass(data.run)}">${flagText(data.run)}</span>
                     </div>
 
