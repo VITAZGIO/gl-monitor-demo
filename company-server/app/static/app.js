@@ -144,7 +144,7 @@ function renderSummary(summary) {
         </div>
 
         <div class="summary-item">
-            <div class="summary-label">Gateway</div>
+            <div class="summary-label">Шлюз заказчика</div>
             <div class="summary-value">${escapeHtml(summary.gateways_count)}</div>
         </div>
 
@@ -205,7 +205,7 @@ function fillFilters() {
     });
 
     preserveSelectValue(gatewayFilter, () => {
-        gatewayFilter.innerHTML = `<option value="">Все gateway</option>`;
+        gatewayFilter.innerHTML = `<option value="">Все шлюзы</option>`;
 
         allGateways.forEach((gateway) => {
             const option = document.createElement("option");
@@ -339,7 +339,7 @@ function renderDeviceDetails(device) {
             </div>
 
             <div class="kv-item">
-                <div class="kv-label">Gateway</div>
+                <div class="kv-label">Шлюз заказчика</div>
                 <div class="kv-value">${escapeHtml(device.gateway_id)}</div>
             </div>
 
