@@ -144,7 +144,7 @@ function renderSummary(summary) {
         </div>
 
         <div class="summary-item">
-            <div class="summary-label">Шлюз заказчика</div>
+            <div class="summary-label">Шлюз(ов) заказчика</div>
             <div class="summary-value">${escapeHtml(summary.gateways_count)}</div>
         </div>
 
