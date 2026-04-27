@@ -34,7 +34,7 @@
         }
 
         .page {
-            max-width: 1200px;
+            max-width: 1250px;
             margin: 0 auto;
             padding: 24px 16px 40px;
         }
@@ -47,6 +47,11 @@
         h2 {
             margin: 0 0 16px;
             font-size: 22px;
+        }
+
+        h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
         }
 
         .layout {
@@ -78,33 +83,33 @@
             font-size: 15px;
         }
 
-        .selectors-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-        }
-
+        .summary-grid,
+        .filters-grid,
         .kv-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
             gap: 12px;
         }
 
-        .kv-item {
+        .summary-item,
+        .kv-item,
+        .event-item {
             background: var(--card-2);
             border: 1px solid var(--line);
             border-radius: 12px;
             padding: 12px;
         }
 
+        .summary-label,
         .kv-label {
             color: var(--muted);
             font-size: 13px;
             margin-bottom: 8px;
         }
 
+        .summary-value,
         .kv-value {
-            font-size: 17px;
+            font-size: 20px;
             font-weight: 700;
             word-break: break-word;
         }
@@ -136,6 +141,53 @@
             border: 1px solid rgba(255, 107, 107, 0.35);
         }
 
+        .device-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .device-row {
+            cursor: pointer;
+            transition: 0.12s ease;
+        }
+
+        .device-row:hover {
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .device-row.active {
+            border-color: var(--ack);
+        }
+
+        .device-row-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .device-row-meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .events-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .event-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .event-meta {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
         .history-list {
             margin: 0;
             padding-left: 20px;
@@ -149,9 +201,9 @@
             height: 340px;
         }
 
-        #deviceSection,
-        #alarmHistorySection,
-        #chartSection {
+        #deviceDetailsSection,
+        #chartSection,
+        #alarmHistorySection {
             display: none;
         }
 
@@ -174,26 +226,66 @@
 
         <div class="layout">
             <section class="card">
-                <div class="selectors-grid">
+                <h2>Главная сводка</h2>
+                <div id="summaryData" class="summary-grid">
+                    <div class="placeholder">Загрузка...</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Фильтры</h2>
+                <div class="filters-grid">
                     <div>
-                        <label for="clientSelect">Выбрать клиента</label>
-                        <select id="clientSelect">
-                            <option value="">Загрузка...</option>
+                        <label for="customerFilter">Заказчик</label>
+                        <select id="customerFilter">
+                            <option value="">Все заказчики</option>
                         </select>
                     </div>
 
-                    <div id="deviceSelectWrap" style="display: none;">
-                        <label for="deviceSelect">Выбрать устройство</label>
-                        <select id="deviceSelect">
-                            <option value="">-- Выберите устройство --</option>
+                    <div>
+                        <label for="siteFilter">Объект</label>
+                        <select id="siteFilter">
+                            <option value="">Все объекты</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="gatewayFilter">Gateway</label>
+                        <select id="gatewayFilter">
+                            <option value="">Все gateway</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="stateFilter">Состояние</label>
+                        <select id="stateFilter">
+                            <option value="">Все устройства</option>
+                            <option value="online">Только online</option>
+                            <option value="offline">Только offline</option>
+                            <option value="warning">Только предупреждения</option>
+                            <option value="alarm">Только аварии</option>
                         </select>
                     </div>
                 </div>
             </section>
 
-            <section class="card" id="deviceSection">
+            <section class="card">
+                <h2>Активные аварии и предупреждения</h2>
+                <div id="eventsData">
+                    <div class="placeholder">Событий пока нет</div>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2>Устройства</h2>
+                <div id="devicesData">
+                    <div class="placeholder">Данных от устройств пока нет</div>
+                </div>
+            </section>
+
+            <section class="card" id="deviceDetailsSection">
                 <h2 id="deviceTitle">Устройство</h2>
-                <div id="deviceData">
+                <div id="deviceDetailsData">
                     <div class="placeholder">Выберите устройство</div>
                 </div>
             </section>
@@ -211,7 +303,6 @@
                     <div class="placeholder">Аварий пока не было</div>
                 </div>
             </section>
-
         </div>
     </main>
 

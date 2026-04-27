@@ -1,20 +1,28 @@
-const clientSelect = document.getElementById("clientSelect");
-const deviceSelect = document.getElementById("deviceSelect");
-const deviceSelectWrap = document.getElementById("deviceSelectWrap");
+const summaryData = document.getElementById("summaryData");
+const customerFilter = document.getElementById("customerFilter");
+const siteFilter = document.getElementById("siteFilter");
+const gatewayFilter = document.getElementById("gatewayFilter");
+const stateFilter = document.getElementById("stateFilter");
 
-const deviceSection = document.getElementById("deviceSection");
+const eventsData = document.getElementById("eventsData");
+const devicesData = document.getElementById("devicesData");
+
+const deviceDetailsSection = document.getElementById("deviceDetailsSection");
 const deviceTitle = document.getElementById("deviceTitle");
-const deviceData = document.getElementById("deviceData");
-
-const alarmHistorySection = document.getElementById("alarmHistorySection");
-const alarmHistoryData = document.getElementById("alarmHistoryData");
+const deviceDetailsData = document.getElementById("deviceDetailsData");
 
 const chartSection = document.getElementById("chartSection");
 const chartCanvas = document.getElementById("pressureChart");
 
+const alarmHistorySection = document.getElementById("alarmHistorySection");
+const alarmHistoryData = document.getElementById("alarmHistoryData");
+
 const POLL_INTERVAL_MS = 3000;
 
-let selectedGatewayId = "";
+let allDevices = [];
+let allCustomers = [];
+let allSites = [];
+let allGateways = [];
 let selectedDeviceId = "";
 let pressureChart = null;
 
@@ -58,8 +66,8 @@ function statusClass(status) {
     return "";
 }
 
-function connectedClass(connected) {
-    return connected ? "ok" : "bad";
+function statusText(device) {
+    return device.status_text || "Неизвестно";
 }
 
 function createChart() {
@@ -123,24 +131,211 @@ function updateChart(history) {
     pressureChart.update();
 }
 
-function renderDevice(device) {
+function renderSummary(summary) {
+    summaryData.innerHTML = `
+        <div class="summary-item">
+            <div class="summary-label">Заказчиков</div>
+            <div class="summary-value">${escapeHtml(summary.customers_count)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Объектов</div>
+            <div class="summary-value">${escapeHtml(summary.sites_count)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Gateway</div>
+            <div class="summary-value">${escapeHtml(summary.gateways_count)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Устройств</div>
+            <div class="summary-value">${escapeHtml(summary.devices_count)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Online</div>
+            <div class="summary-value ok">${escapeHtml(summary.online_devices)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Offline</div>
+            <div class="summary-value bad">${escapeHtml(summary.offline_devices)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Предупреждений</div>
+            <div class="summary-value warn">${escapeHtml(summary.warnings_count)}</div>
+        </div>
+
+        <div class="summary-item">
+            <div class="summary-label">Аварий</div>
+            <div class="summary-value bad">${escapeHtml(summary.alarms_count)}</div>
+        </div>
+    `;
+}
+
+function preserveSelectValue(select, buildFn) {
+    const oldValue = select.value;
+    buildFn();
+    select.value = oldValue;
+}
+
+function fillFilters() {
+    preserveSelectValue(customerFilter, () => {
+        customerFilter.innerHTML = `<option value="">Все заказчики</option>`;
+
+        allCustomers.forEach((customer) => {
+            const option = document.createElement("option");
+            option.value = customer.customer_id;
+            option.textContent = customer.customer_id;
+            customerFilter.appendChild(option);
+        });
+    });
+
+    preserveSelectValue(siteFilter, () => {
+        siteFilter.innerHTML = `<option value="">Все объекты</option>`;
+
+        allSites.forEach((site) => {
+            const option = document.createElement("option");
+            option.value = site.site_id;
+            option.textContent = `${site.site_id} (${site.customer_id})`;
+            siteFilter.appendChild(option);
+        });
+    });
+
+    preserveSelectValue(gatewayFilter, () => {
+        gatewayFilter.innerHTML = `<option value="">Все gateway</option>`;
+
+        allGateways.forEach((gateway) => {
+            const option = document.createElement("option");
+            option.value = gateway.gateway_id;
+            option.textContent = gateway.gateway_id;
+            gatewayFilter.appendChild(option);
+        });
+    });
+}
+
+function getFilteredDevices() {
+    const customerId = customerFilter.value;
+    const siteId = siteFilter.value;
+    const gatewayId = gatewayFilter.value;
+    const state = stateFilter.value;
+
+    return allDevices.filter((device) => {
+        if (customerId && device.customer_id !== customerId) return false;
+        if (siteId && device.site_id !== siteId) return false;
+        if (gatewayId && device.gateway_id !== gatewayId) return false;
+
+        if (state === "online" && device.connected !== true) return false;
+        if (state === "offline" && device.connected === true) return false;
+        if (state === "warning" && Number(device.status) !== 1 && Number(device.warning) !== 1) return false;
+        if (state === "alarm" && Number(device.status) !== 2 && Number(device.alarm) !== 1) return false;
+
+        return true;
+    });
+}
+
+function renderEvents(events) {
+    if (!Array.isArray(events) || events.length === 0) {
+        eventsData.innerHTML = `<div class="placeholder">Активных аварий и предупреждений нет</div>`;
+        return;
+    }
+
+    eventsData.innerHTML = `
+        <div class="events-list">
+            ${events.map((event) => `
+                <div class="event-item">
+                    <div class="event-title ${event.level === "alarm" ? "bad" : "warn"}">
+                        ${escapeHtml(event.level_text)} — ${escapeHtml(event.device_id)}
+                    </div>
+                    <div class="event-meta">
+                        Заказчик: ${escapeHtml(event.customer_id)} /
+                        Объект: ${escapeHtml(event.site_id)} /
+                        Gateway: ${escapeHtml(event.gateway_id)} /
+                        Последнее обновление: ${escapeHtml(formatDateTime(event.last_seen))}
+                    </div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderDevicesList() {
+    const devices = getFilteredDevices();
+
+    if (!devices.length) {
+        devicesData.innerHTML = `<div class="placeholder">Устройств по выбранным фильтрам нет</div>`;
+        return;
+    }
+
+    devicesData.innerHTML = `
+        <div class="device-list">
+            ${devices.map((device) => {
+                const activeClass = selectedDeviceId === device.device_id ? "active" : "";
+
+                return `
+                    <div class="kv-item device-row ${activeClass}" data-device-id="${escapeHtml(device.device_id)}">
+                        <div class="device-row-title">
+                            <span>${escapeHtml(device.device_id)}</span>
+                            <span class="${device.connected ? "ok" : "bad"}">${device.connected ? "Online" : "Offline"}</span>
+                        </div>
+
+                        <div class="device-row-meta">
+                            ${escapeHtml(device.customer_id)} / ${escapeHtml(device.site_id)} /
+                            ${escapeHtml(device.gateway_id)} /
+                            <span class="${statusClass(device.status)}">${escapeHtml(statusText(device))}</span>
+                        </div>
+                    </div>
+                `;
+            }).join("")}
+        </div>
+    `;
+
+    document.querySelectorAll(".device-row").forEach((row) => {
+        row.addEventListener("click", async () => {
+            selectedDeviceId = row.dataset.deviceId;
+            await loadSelectedDevice();
+            renderDevicesList();
+        });
+    });
+}
+
+function renderDeviceDetails(device) {
     if (!device) {
-        deviceData.innerHTML = `<div class="placeholder">Выберите устройство</div>`;
+        deviceDetailsSection.style.display = "none";
+        chartSection.style.display = "none";
+        alarmHistorySection.style.display = "none";
         return;
     }
 
     deviceTitle.textContent = device.device_id || "Устройство";
 
-    deviceData.innerHTML = `
+    deviceDetailsData.innerHTML = `
         <div class="kv-grid">
             <div class="kv-item">
+                <div class="kv-label">Заказчик</div>
+                <div class="kv-value">${escapeHtml(device.customer_id)}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Объект</div>
+                <div class="kv-value">${escapeHtml(device.site_id)}</div>
+            </div>
+
+            <div class="kv-item">
+                <div class="kv-label">Gateway</div>
+                <div class="kv-value">${escapeHtml(device.gateway_id)}</div>
+            </div>
+
+            <div class="kv-item">
                 <div class="kv-label">Подключено</div>
-                <div class="kv-value ${connectedClass(device.connected)}">${device.connected ? "Да" : "Нет"}</div>
+                <div class="kv-value ${device.connected ? "ok" : "bad"}">${device.connected ? "Да" : "Нет"}</div>
             </div>
 
             <div class="kv-item">
                 <div class="kv-label">Статус</div>
-                <div class="kv-value ${statusClass(device.status)}">${escapeHtml(device.status_text || "Неизвестно")}</div>
+                <div class="kv-value ${statusClass(device.status)}">${escapeHtml(statusText(device))}</div>
             </div>
 
             <div class="kv-item">
@@ -179,6 +374,10 @@ function renderDevice(device) {
             </div>
         </div>
     `;
+
+    deviceDetailsSection.style.display = "block";
+    chartSection.style.display = "block";
+    alarmHistorySection.style.display = "block";
 }
 
 function renderAlarmHistory(items) {
@@ -196,85 +395,9 @@ function renderAlarmHistory(items) {
     alarmHistoryData.innerHTML = `<ul class="history-list">${rows}</ul>`;
 }
 
-async function loadClients() {
-    const res = await fetch(`/api/gateways?t=${Date.now()}`, { cache: "no-store" });
-
-    if (!res.ok) {
-        throw new Error("Не удалось загрузить клиентов");
-    }
-
-    const data = await res.json();
-    const gateways = Array.isArray(data.gateways) ? data.gateways : [];
-
-    const oldValue = selectedGatewayId;
-
-    clientSelect.innerHTML = "";
-
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = gateways.length ? "-- Выберите клиента --" : "-- Клиентов нет --";
-    clientSelect.appendChild(placeholder);
-
-    gateways.forEach((gateway) => {
-        const option = document.createElement("option");
-        option.value = gateway.gateway_id;
-        option.textContent = `${gateway.gateway_id} — ${gateway.customer_id} / ${gateway.site_id}`;
-        clientSelect.appendChild(option);
-    });
-
-    if (oldValue && gateways.some((gateway) => gateway.gateway_id === oldValue)) {
-        clientSelect.value = oldValue;
-    }
-}
-
-async function loadDevicesForClient(gatewayId) {
-    if (!gatewayId) {
-        deviceSelectWrap.style.display = "none";
-        return;
-    }
-
-    const res = await fetch(`/api/gateways/${encodeURIComponent(gatewayId)}/devices?t=${Date.now()}`, {
-        cache: "no-store",
-    });
-
-    if (!res.ok) {
-        throw new Error("Не удалось загрузить устройства клиента");
-    }
-
-    const data = await res.json();
-    const devices = Array.isArray(data.devices) ? data.devices : [];
-
-    const oldValue = selectedDeviceId;
-
-    deviceSelect.innerHTML = "";
-
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = devices.length ? "-- Выберите устройство --" : "-- Устройств нет --";
-    deviceSelect.appendChild(placeholder);
-
-    devices.forEach((device) => {
-        const option = document.createElement("option");
-        option.value = device.device_id;
-        option.textContent = device.device_id;
-        deviceSelect.appendChild(option);
-    });
-
-    if (oldValue && devices.some((device) => device.device_id === oldValue)) {
-        deviceSelect.value = oldValue;
-    } else {
-        selectedDeviceId = "";
-    }
-
-    deviceSelectWrap.style.display = "block";
-}
-
 async function loadSelectedDevice() {
     if (!selectedDeviceId) {
-        deviceSection.style.display = "none";
-        alarmHistorySection.style.display = "none";
-        chartSection.style.display = "none";
-        clearChart();
+        renderDeviceDetails(null);
         return;
     }
 
@@ -283,7 +406,8 @@ async function loadSelectedDevice() {
     });
 
     if (!deviceRes.ok) {
-        throw new Error("Не удалось загрузить устройство");
+        renderDeviceDetails(null);
+        return;
     }
 
     const device = await deviceRes.json();
@@ -299,47 +423,69 @@ async function loadSelectedDevice() {
     const historyData = historyRes.ok ? await historyRes.json() : { history: [] };
     const alarmData = alarmRes.ok ? await alarmRes.json() : { alarm_history: [] };
 
-    deviceSection.style.display = "block";
-    alarmHistorySection.style.display = "block";
-    chartSection.style.display = "block";
-
-    renderDevice(device);
-    renderAlarmHistory(alarmData.alarm_history);
+    renderDeviceDetails(device);
     updateChart(historyData.history);
+    renderAlarmHistory(alarmData.alarm_history);
+}
+
+async function fetchJson(url) {
+    const res = await fetch(`${url}?t=${Date.now()}`, {
+        cache: "no-store",
+    });
+
+    if (!res.ok) {
+        throw new Error(`Ошибка запроса: ${url}`);
+    }
+
+    return await res.json();
 }
 
 async function refreshAll() {
     try {
-        await loadClients();
+        const [summary, customersData, sitesData, gatewaysData, devicesDataResponse, alarmsData] = await Promise.all([
+            fetchJson("/api/dashboard/summary"),
+            fetchJson("/api/customers"),
+            fetchJson("/api/sites"),
+            fetchJson("/api/gateways"),
+            fetchJson("/api/devices"),
+            fetchJson("/api/alarms"),
+        ]);
 
-        if (selectedGatewayId) {
-            await loadDevicesForClient(selectedGatewayId);
-        }
+        allCustomers = Array.isArray(customersData.customers) ? customersData.customers : [];
+        allSites = Array.isArray(sitesData.sites) ? sitesData.sites : [];
+        allGateways = Array.isArray(gatewaysData.gateways) ? gatewaysData.gateways : [];
+        allDevices = Array.isArray(devicesDataResponse.devices) ? devicesDataResponse.devices : [];
+
+        renderSummary(summary);
+        fillFilters();
+        renderEvents(alarmsData.alarms);
+        renderDevicesList();
 
         if (selectedDeviceId) {
             await loadSelectedDevice();
         }
     } catch (error) {
         console.error(error);
+        summaryData.innerHTML = `<div class="error-box">Ошибка загрузки сводки</div>`;
+        eventsData.innerHTML = `<div class="error-box">Ошибка загрузки событий</div>`;
+        devicesData.innerHTML = `<div class="error-box">Ошибка загрузки устройств</div>`;
     }
 }
 
-clientSelect.addEventListener("change", async (event) => {
-    selectedGatewayId = event.target.value;
-    selectedDeviceId = "";
-
-    deviceSelect.value = "";
-    deviceSection.style.display = "none";
-    alarmHistorySection.style.display = "none";
-    chartSection.style.display = "none";
-    clearChart();
-
-    await loadDevicesForClient(selectedGatewayId);
+customerFilter.addEventListener("change", () => {
+    renderDevicesList();
 });
 
-deviceSelect.addEventListener("change", async (event) => {
-    selectedDeviceId = event.target.value;
-    await loadSelectedDevice();
+siteFilter.addEventListener("change", () => {
+    renderDevicesList();
+});
+
+gatewayFilter.addEventListener("change", () => {
+    renderDevicesList();
+});
+
+stateFilter.addEventListener("change", () => {
+    renderDevicesList();
 });
 
 if (typeof window.toggleFeature !== "function") {
