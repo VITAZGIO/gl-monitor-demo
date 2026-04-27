@@ -293,11 +293,26 @@ function renderDevicesList() {
     `;
 
     document.querySelectorAll(".device-row").forEach((row) => {
-        row.addEventListener("click", async () => {
-            selectedDeviceId = row.dataset.deviceId;
+       row.addEventListener("click", async () => {
+            const clickedDeviceId = row.dataset.deviceId;
+
+            if (selectedDeviceId === clickedDeviceId) {
+                selectedDeviceId = "";
+
+                deviceDetailsSection.style.display = "none";
+                chartSection.style.display = "none";
+                alarmHistorySection.style.display = "none";
+
+                clearChart();
+                renderDevicesList();
+                return;
+            }
+
+            selectedDeviceId = clickedDeviceId;
             await loadSelectedDevice();
             renderDevicesList();
         });
+
     });
 }
 
