@@ -230,9 +230,7 @@ def on_message(client, userdata, msg):
         )
         return
 
-    previous_latched_alarm = 1 if device.get("alarm") == 1 else 0
-    latched_alarm = previous_latched_alarm
-
+    previous_alarm = device.get("alarm")
     timestamp = now_iso()
 
     device["last_seen"] = timestamp
@@ -251,33 +249,19 @@ def on_message(client, userdata, msg):
     if parsed_warning is not None:
         device["warning"] = parsed_warning
 
+    if parsed_alarm is not None:
+        device["alarm"] = parsed_alarm
+
+        if parsed_alarm == 1 and previous_alarm != 1:
+            add_alarm_event(device, timestamp)
+
     if parsed_ack is not None:
         device["ack"] = parsed_ack
 
-    # Защёлка аварии:
-    # 1. Если пришёл alarm=1 — фиксируем аварию.
-    # 2. Если физический alarm потом стал 0 — авария всё равно остаётся.
-    # 3. Сбрасываем только по ack=1, когда alarm уже 0.
-    if parsed_alarm is not None:
-        device["raw_alarm"] = parsed_alarm
-
-        if parsed_alarm == 1:
-            latched_alarm = 1
-
-        elif parsed_alarm == 0 and parsed_ack == 1:
-            latched_alarm = 0
-
-    elif parsed_ack == 1:
-        latched_alarm = 0
-
-    if latched_alarm == 1 and previous_latched_alarm != 1:
-        add_alarm_event(device, timestamp)
-
-    if parsed_alarm is not None or parsed_ack is not None:
-        device["alarm"] = latched_alarm
-
-    # Итоговый статус считаем уже по защёлкнутой аварии.
-    # Авария имеет максимальный приоритет.
+    # Обычная логика без защёлки:
+    # alarm=1 -> авария включена
+    # alarm=0 -> авария выключена
+    # ack только отображается, но не сбрасывает аварию
     if device.get("alarm") == 1:
         device["status"] = 2
 
@@ -287,14 +271,14 @@ def on_message(client, userdata, msg):
     elif parsed_status is not None:
         device["status"] = parsed_status
 
-    elif parsed_alarm is not None or parsed_warning is not None or parsed_ack is not None:
+    elif parsed_alarm is not None or parsed_warning is not None:
         device["status"] = 0
 
     logger.info(
         "MQTT received:\n"
         " topic: %s\n"
         " payload: %s\n"
-        " parsed: setpoint=%s status=%s temperature=%s run=%s warning=%s alarm=%s ack=%s latched_alarm=%s",
+        " parsed: setpoint=%s status=%s temperature=%s run=%s warning=%s alarm=%s ack=%s",
         topic,
         raw_payload,
         parsed_setpoint,
@@ -304,7 +288,6 @@ def on_message(client, userdata, msg):
         parsed_warning,
         parsed_alarm,
         parsed_ack,
-        device.get("alarm"),
     )
 
 
