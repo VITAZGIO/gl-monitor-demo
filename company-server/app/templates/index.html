@@ -83,6 +83,26 @@
             font-size: 15px;
         }
 
+        button {
+            border: 1px solid var(--line);
+            background: var(--card-2);
+            color: var(--text);
+            border-radius: 10px;
+            padding: 9px 12px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            border-color: rgba(255, 255, 255, 0.22);
+        }
+
+        button.active {
+            background: #2f4050;
+            border-color: var(--ack);
+            color: #ffffff;
+        }
+
         .summary-grid,
         .filters-grid,
         .kv-grid {
@@ -197,6 +217,21 @@
             margin: 6px 0;
         }
 
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .chart-range-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
         .chart-wrap {
             height: 340px;
         }
@@ -252,7 +287,7 @@
                     <div>
                         <label for="gatewayFilter">Шлюз заказчика</label>
                         <select id="gatewayFilter">
-                            <option value="">Все шлюзы</option>
+                            <option value="">Все шлюзы заказчика</option>
                         </select>
                     </div>
 
@@ -291,7 +326,16 @@
             </section>
 
             <section class="card" id="chartSection">
-                <h2>График давления по времени</h2>
+                <div class="chart-header">
+                    <h2>График уставки и выходного давления</h2>
+
+                    <div class="chart-range-buttons">
+                        <button class="chart-range-btn active" data-minutes="5">5 мин</button>
+                        <button class="chart-range-btn" data-minutes="30">30 мин</button>
+                        <button class="chart-range-btn" data-minutes="60">1 час</button>
+                    </div>
+                </div>
+
                 <div class="chart-wrap">
                     <canvas id="pressureChart"></canvas>
                 </div>

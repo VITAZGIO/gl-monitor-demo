@@ -13,6 +13,7 @@ const deviceDetailsData = document.getElementById("deviceDetailsData");
 
 const chartSection = document.getElementById("chartSection");
 const chartCanvas = document.getElementById("pressureChart");
+const chartRangeButtons = document.querySelectorAll(".chart-range-btn");
 
 const alarmHistorySection = document.getElementById("alarmHistorySection");
 const alarmHistoryData = document.getElementById("alarmHistoryData");
@@ -25,6 +26,8 @@ let allSites = [];
 let allGateways = [];
 let selectedDeviceId = "";
 let pressureChart = null;
+let selectedChartRangeMinutes = 5;
+let selectedDeviceHistory = [];
 
 function escapeHtml(value) {
     return String(value ?? "—")
@@ -70,6 +73,20 @@ function statusText(device) {
     return device.status_text || "Неизвестно";
 }
 
+function getOutletPressure(device) {
+    if (device.outlet_pressure !== undefined && device.outlet_pressure !== null) {
+        return device.outlet_pressure;
+    }
+
+    // Временная совместимость: пока ESP шлёт temperature,
+    // показываем его как выходное давление.
+    if (device.temperature !== undefined && device.temperature !== null) {
+        return device.temperature;
+    }
+
+    return null;
+}
+
 function createChart() {
     pressureChart = new Chart(chartCanvas, {
         type: "line",
@@ -82,7 +99,21 @@ function createChart() {
                     borderColor: "#4bc0c0",
                     backgroundColor: "rgba(75, 192, 192, 0.15)",
                     tension: 0.25,
-                    fill: true,
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    borderWidth: 2,
+                },
+                {
+                    label: "Выходное давление, бар",
+                    data: [],
+                    borderColor: "#ffcc66",
+                    backgroundColor: "rgba(255, 204, 102, 0.15)",
+                    tension: 0.25,
+                    fill: false,
+                    pointRadius: 0,
+                    pointHoverRadius: 0,
+                    borderWidth: 2,
                 },
             ],
         },
@@ -90,6 +121,12 @@ function createChart() {
             responsive: true,
             maintainAspectRatio: false,
             animation: false,
+            elements: {
+                point: {
+                    radius: 0,
+                    hoverRadius: 0,
+                },
+            },
             plugins: {
                 legend: {
                     labels: {
@@ -117,7 +154,26 @@ function clearChart() {
 
     pressureChart.data.labels = [];
     pressureChart.data.datasets[0].data = [];
+    pressureChart.data.datasets[1].data = [];
     pressureChart.update();
+}
+
+function filterHistoryByRange(history) {
+    if (!Array.isArray(history) || history.length === 0) {
+        return [];
+    }
+
+    const now = Date.now();
+    const rangeMs = selectedChartRangeMinutes * 60 * 1000;
+
+    return history.filter((point) => {
+        if (!point.timestamp) return false;
+
+        const ts = new Date(point.timestamp).getTime();
+        if (Number.isNaN(ts)) return false;
+
+        return now - ts <= rangeMs;
+    });
 }
 
 function updateChart(history) {
@@ -126,8 +182,36 @@ function updateChart(history) {
         return;
     }
 
-    pressureChart.data.labels = history.map((point) => formatTime(point.timestamp));
-    pressureChart.data.datasets[0].data = history.map((point) => point.value);
+    const filteredHistory = filterHistoryByRange(history);
+
+    if (!filteredHistory.length) {
+        clearChart();
+        return;
+    }
+
+    pressureChart.data.labels = filteredHistory.map((point) => formatTime(point.timestamp));
+
+    pressureChart.data.datasets[0].data = filteredHistory.map((point) => {
+        if (point.setpoint !== undefined && point.setpoint !== null) {
+            return point.setpoint;
+        }
+
+        // Совместимость со старой историей, где было только value
+        if (point.value !== undefined && point.value !== null) {
+            return point.value;
+        }
+
+        return null;
+    });
+
+    pressureChart.data.datasets[1].data = filteredHistory.map((point) => {
+        if (point.outlet_pressure !== undefined && point.outlet_pressure !== null) {
+            return point.outlet_pressure;
+        }
+
+        return null;
+    });
+
     pressureChart.update();
 }
 
@@ -205,7 +289,7 @@ function fillFilters() {
     });
 
     preserveSelectValue(gatewayFilter, () => {
-        gatewayFilter.innerHTML = `<option value="">Все шлюзы</option>`;
+        gatewayFilter.innerHTML = `<option value="">Все шлюзы заказчика</option>`;
 
         allGateways.forEach((gateway) => {
             const option = document.createElement("option");
@@ -252,7 +336,7 @@ function renderEvents(events) {
                     <div class="event-meta">
                         Заказчик: ${escapeHtml(event.customer_id)} /
                         Объект: ${escapeHtml(event.site_id)} /
-                        Gateway: ${escapeHtml(event.gateway_id)} /
+                        Шлюз заказчика: ${escapeHtml(event.gateway_id)} /
                         Последнее обновление: ${escapeHtml(formatDateTime(event.last_seen))}
                     </div>
                 </div>
@@ -293,7 +377,7 @@ function renderDevicesList() {
     `;
 
     document.querySelectorAll(".device-row").forEach((row) => {
-       row.addEventListener("click", async () => {
+        row.addEventListener("click", async () => {
             const clickedDeviceId = row.dataset.deviceId;
 
             if (selectedDeviceId === clickedDeviceId) {
@@ -312,7 +396,6 @@ function renderDevicesList() {
             await loadSelectedDevice();
             renderDevicesList();
         });
-
     });
 }
 
@@ -323,6 +406,8 @@ function renderDeviceDetails(device) {
         alarmHistorySection.style.display = "none";
         return;
     }
+
+    const outletPressure = getOutletPressure(device);
 
     deviceTitle.textContent = device.device_id || "Устройство";
 
@@ -359,8 +444,8 @@ function renderDeviceDetails(device) {
             </div>
 
             <div class="kv-item">
-                <div class="kv-label">Температура</div>
-                <div class="kv-value">${escapeHtml(device.temperature)} °C</div>
+                <div class="kv-label">Выходное давление</div>
+                <div class="kv-value">${escapeHtml(outletPressure)} бар</div>
             </div>
 
             <div class="kv-item">
@@ -438,8 +523,10 @@ async function loadSelectedDevice() {
     const historyData = historyRes.ok ? await historyRes.json() : { history: [] };
     const alarmData = alarmRes.ok ? await alarmRes.json() : { alarm_history: [] };
 
+    selectedDeviceHistory = Array.isArray(historyData.history) ? historyData.history : [];
+
     renderDeviceDetails(device);
-    updateChart(historyData.history);
+    updateChart(selectedDeviceHistory);
     renderAlarmHistory(alarmData.alarm_history);
 }
 
@@ -501,6 +588,17 @@ gatewayFilter.addEventListener("change", () => {
 
 stateFilter.addEventListener("change", () => {
     renderDevicesList();
+});
+
+chartRangeButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+        selectedChartRangeMinutes = Number(button.dataset.minutes || "5");
+
+        chartRangeButtons.forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+
+        updateChart(selectedDeviceHistory);
+    });
 });
 
 if (typeof window.toggleFeature !== "function") {

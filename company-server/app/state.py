@@ -3,7 +3,9 @@ from typing import Any
 
 GATEWAYS: dict[str, dict[str, Any]] = {}
 
-HISTORY_LIMIT = 60
+# 1 час при экспорте примерно раз в 5 секунд = 720 точек.
+# Держим с запасом.
+HISTORY_LIMIT = 900
 ALARM_HISTORY_LIMIT = 30
 
 
@@ -31,10 +33,15 @@ def _to_int(value: Any) -> int | None:
         return None
 
 
-def _make_history_point(value: float, timestamp: str | None) -> dict[str, Any]:
+def _make_pressure_history_point(
+    timestamp: str | None,
+    setpoint: float | None,
+    outlet_pressure: float | None,
+) -> dict[str, Any]:
     return {
         "timestamp": timestamp or now_iso(),
-        "value": round(float(value), 1),
+        "setpoint": setpoint,
+        "outlet_pressure": outlet_pressure,
     }
 
 
@@ -75,6 +82,14 @@ def save_gateway_packet(packet: dict[str, Any]) -> None:
         alarm_history = list(old_device.get("alarm_history", []))
 
         setpoint = _to_float(incoming_device.get("setpoint"))
+
+        # Выходное давление:
+        # 1. Если ESP уже шлёт outlet_pressure — используем его.
+        # 2. Если outlet_pressure нет — временно используем temperature как имитацию.
+        outlet_pressure = _to_float(
+            incoming_device.get("outlet_pressure", incoming_device.get("temperature"))
+        )
+
         alarm = _to_int(incoming_device.get("alarm"))
         previous_alarm = _to_int(old_device.get("alarm"))
 
@@ -84,8 +99,14 @@ def save_gateway_packet(packet: dict[str, Any]) -> None:
             or now_iso()
         )
 
-        if setpoint is not None:
-            history.append(_make_history_point(setpoint, last_seen))
+        if setpoint is not None or outlet_pressure is not None:
+            history.append(
+                _make_pressure_history_point(
+                    timestamp=last_seen,
+                    setpoint=setpoint,
+                    outlet_pressure=outlet_pressure,
+                )
+            )
             history = history[-HISTORY_LIMIT:]
 
         if alarm == 1 and previous_alarm != 1:
@@ -94,6 +115,7 @@ def save_gateway_packet(packet: dict[str, Any]) -> None:
 
         new_devices[device_id] = {
             **incoming_device,
+            "outlet_pressure": outlet_pressure,
             "history": history,
             "alarm_history": alarm_history,
         }
