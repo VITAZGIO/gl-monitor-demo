@@ -92,7 +92,7 @@ function getOutletPressure(device) {
         return value;
     }
 
-    return Math.round(numberValue);
+    return Math.round(numberValue * 10);
 }
 
 
