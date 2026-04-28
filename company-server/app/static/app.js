@@ -93,7 +93,7 @@ function getOutletPressure(device) {
     }
 
     
-    return (numberValue * 10).toFixed(1);
+    return (numberValue).toFixed(1);
 }
 
 
@@ -218,7 +218,7 @@ function updateChart(history) {
     // Линия 2:
     pressureChart.data.datasets[1].data = filteredHistory.map((point) => {
         if (point.outlet_pressure !== undefined && point.outlet_pressure !== null) {
-            return Number((Number(point.outlet_pressure) * 10).toFixed(1));
+            return Number((Number(point.outlet_pressure)).toFixed(1));
         }
 
         return null;
