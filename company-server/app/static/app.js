@@ -56,6 +56,20 @@ function formatTime(value) {
     return date.toLocaleTimeString("ru-RU");
 }
 
+function formatPressureOneDecimal(value) {
+    if (value === undefined || value === null) {
+        return "—";
+    }
+
+    const numberValue = Number(value);
+
+    if (Number.isNaN(numberValue)) {
+        return value;
+    }
+
+    return numberValue.toFixed(1);
+}
+
 function flagText(value, onText = "Вкл", offText = "Выкл") {
     if (value === 1) return onText;
     if (value === 0) return offText;
@@ -74,28 +88,19 @@ function statusText(device) {
 }
 
 function getOutletPressure(device) {
-    let value = null;
-
     if (device.outlet_pressure !== undefined && device.outlet_pressure !== null) {
-        value = device.outlet_pressure;
-    } else if (device.temperature !== undefined && device.temperature !== null) {
-        value = device.temperature;
+        return device.outlet_pressure;
     }
 
-    if (value === null) {
-        return null;
+    // Временная совместимость:
+    // если ESP пока не шлёт outlet_pressure,
+    // используем temperature как выходное давление.
+    if (device.temperature !== undefined && device.temperature !== null) {
+        return device.temperature;
     }
 
-    const numberValue = Number(value);
-
-    if (Number.isNaN(numberValue)) {
-        return value;
-    }
-
-    
-    return (numberValue).toFixed(1);
+    return null;
 }
-
 
 function createChart() {
     pressureChart = new Chart(chartCanvas, {
@@ -146,13 +151,21 @@ function createChart() {
             },
             scales: {
                 x: {
-                    ticks: { color: "#cccccc" },
-                    grid: { color: "rgba(255,255,255,0.08)" },
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255,255,255,0.08)",
+                    },
                 },
                 y: {
                     beginAtZero: true,
-                    ticks: { color: "#cccccc" },
-                    grid: { color: "rgba(255,255,255,0.08)" },
+                    ticks: {
+                        color: "#cccccc",
+                    },
+                    grid: {
+                        color: "rgba(255,255,255,0.08)",
+                    },
                 },
             },
         },
@@ -201,24 +214,24 @@ function updateChart(history) {
 
     pressureChart.data.labels = filteredHistory.map((point) => formatTime(point.timestamp));
 
-    // Линия 1:
+    // Линия 1: уставка давления
     pressureChart.data.datasets[0].data = filteredHistory.map((point) => {
         if (point.setpoint !== undefined && point.setpoint !== null) {
-            return point.setpoint;
+            return Number(Number(point.setpoint).toFixed(1));
         }
 
-        
+        // Совместимость со старой историей, где было только value
         if (point.value !== undefined && point.value !== null) {
-            return point.value;
+            return Number(Number(point.value).toFixed(1));
         }
 
         return null;
     });
 
-    // Линия 2:
+    // Линия 2: выходное давление
     pressureChart.data.datasets[1].data = filteredHistory.map((point) => {
         if (point.outlet_pressure !== undefined && point.outlet_pressure !== null) {
-            return Number((Number(point.outlet_pressure)).toFixed(1));
+            return Number(Number(point.outlet_pressure).toFixed(1));
         }
 
         return null;
@@ -452,12 +465,12 @@ function renderDeviceDetails(device) {
 
             <div class="kv-item">
                 <div class="kv-label">Уставка давления</div>
-                <div class="kv-value">${escapeHtml(device.setpoint)} бар</div>
+                <div class="kv-value">${escapeHtml(formatPressureOneDecimal(device.setpoint))} бар</div>
             </div>
 
             <div class="kv-item">
                 <div class="kv-label">Выходное давление</div>
-                <div class="kv-value">${escapeHtml(outletPressure)} бар</div>
+                <div class="kv-value">${escapeHtml(formatPressureOneDecimal(outletPressure))} бар</div>
             </div>
 
             <div class="kv-item">
