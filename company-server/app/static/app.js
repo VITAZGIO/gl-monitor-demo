@@ -74,18 +74,27 @@ function statusText(device) {
 }
 
 function getOutletPressure(device) {
+    let value = null;
+
     if (device.outlet_pressure !== undefined && device.outlet_pressure !== null) {
-        return device.outlet_pressure;
+        value = device.outlet_pressure;
+    } else if (device.temperature !== undefined && device.temperature !== null) {
+        value = device.temperature;
     }
 
-    // Временная совместимость: пока ESP шлёт temperature,
-    // показываем его как выходное давление.
-    if (device.temperature !== undefined && device.temperature !== null) {
-        return device.temperature;
+    if (value === null) {
+        return null;
     }
 
-    return null;
+    const numberValue = Number(value);
+
+    if (Number.isNaN(numberValue)) {
+        return value;
+    }
+
+    return Math.round(numberValue);
 }
+
 
 function createChart() {
     pressureChart = new Chart(chartCanvas, {
