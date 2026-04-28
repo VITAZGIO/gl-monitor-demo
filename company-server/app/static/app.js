@@ -215,11 +215,12 @@ function updateChart(history) {
 
     pressureChart.data.datasets[1].data = filteredHistory.map((point) => {
         if (point.outlet_pressure !== undefined && point.outlet_pressure !== null) {
-            return point.outlet_pressure;
+            return Math.round(Number(point.outlet_pressure) * 10);
         }
 
         return null;
     });
+
 
     pressureChart.update();
 }
