@@ -92,7 +92,8 @@ function getOutletPressure(device) {
         return value;
     }
 
-    return Math.round(numberValue * 10);
+    
+    return (numberValue * 10).toFixed(1);
 }
 
 
@@ -200,12 +201,13 @@ function updateChart(history) {
 
     pressureChart.data.labels = filteredHistory.map((point) => formatTime(point.timestamp));
 
+    // Линия 1:
     pressureChart.data.datasets[0].data = filteredHistory.map((point) => {
         if (point.setpoint !== undefined && point.setpoint !== null) {
             return point.setpoint;
         }
 
-        // Совместимость со старой историей, где было только value
+        
         if (point.value !== undefined && point.value !== null) {
             return point.value;
         }
@@ -213,14 +215,14 @@ function updateChart(history) {
         return null;
     });
 
+    // Линия 2:
     pressureChart.data.datasets[1].data = filteredHistory.map((point) => {
         if (point.outlet_pressure !== undefined && point.outlet_pressure !== null) {
-            return Math.round(Number(point.outlet_pressure) * 10);
+            return Number((Number(point.outlet_pressure) * 10).toFixed(1));
         }
 
         return null;
     });
-
 
     pressureChart.update();
 }
